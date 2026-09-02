@@ -38,6 +38,34 @@ need_deps() {
 # 把任意字符串安全转成 JSON 字符串字面量
 json_str() { jq -Rn --arg s "$(cat)" '$s' 2>/dev/null; }
 
+# ---- 让 readline 能正常收中文 ----
+# locale 不是 UTF-8 时，readline 把 UTF-8 的高位字节当成 Meta 编辑命令，
+# 中文输入会被当场吃掉（"你好" 可能变成一串补全动作）。
+# 新装的服务器 locale 常常就是 C/POSIX，所以这里主动兜一下。
+ensure_utf8_input() {
+    case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+        *UTF-8*|*utf-8*|*UTF8*|*utf8*) ;;
+        *)
+            local cand
+            for cand in C.UTF-8 C.utf8 en_US.UTF-8 en_US.utf8; do
+                if locale -a 2>/dev/null | grep -qix "$cand"; then
+                    export LC_ALL="$cand" LANG="$cand"
+                    break
+                fi
+            done
+            ;;
+    esac
+
+    # 双保险：一台 UTF-8 locale 都没有的机器上，至少别让 readline 改写高位字节
+    if [ -z "${INPUTRC:-}" ] && [ -n "${AGENT_RUN_DIR:-}" ]; then
+        local rc="$AGENT_RUN_DIR/inputrc"
+        {
+            [ -f "$HOME/.inputrc" ] && printf '$include %s\n' "$HOME/.inputrc"
+            printf 'set input-meta on\nset output-meta on\nset convert-meta off\n'
+        } >"$rc" 2>/dev/null && export INPUTRC="$rc"
+    fi
+}
+
 # 截断过长文本，尾部标注省略了多少
 truncate_text() {
     local text="$1" limit="${2:-30000}"

@@ -62,6 +62,7 @@ EOF
 
 repl() {
     config_require
+    ensure_utf8_input
     say "${C_BOLD}agent${C_OFF} $AGENT_VERSION  ${C_GRAY}$AGENT_MODEL @ $PWD${C_OFF}"
     say "${C_GRAY}/help 看命令，/exit 退出。当前上下文 $(history_count) 条。${C_OFF}"
     say ""
@@ -71,9 +72,11 @@ repl() {
     local line
     while :; do
         printf '%s你 ›%s ' "$C_GREEN" "$C_OFF"
-        if ! IFS= read -r -e line; then
-            say ""
-            break
+        # AGENT_NO_READLINE=1 关掉行编辑 —— 少数终端下 readline 仍会捣乱时的退路
+        if [ "${AGENT_NO_READLINE:-}" = 1 ]; then
+            IFS= read -r line || { say ""; break; }
+        else
+            IFS= read -r -e line || { say ""; break; }
         fi
         case "$line" in
             "") continue ;;
