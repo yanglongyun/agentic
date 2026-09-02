@@ -49,8 +49,31 @@ api_call() {
 
         local msg
         msg="$(printf '%s' "$http" | jq -r '.error.message // empty' 2>/dev/null)"
-        [ -z "$msg" ] && msg="$(printf '%s' "$http" | head -c 500)"
-        err "请求失败 (HTTP ${code:-?})：$msg"
+        if [ -z "$msg" ]; then
+            # 网关的 HTML 错误页别整页糊到终端上
+            case "$http" in
+                *"<html"*|*"<HTML"*) msg="服务端返回了 HTML 错误页，不是 API 响应" ;;
+                *) msg="$(printf '%s' "$http" | tr -d '\r' | head -c 300)" ;;
+            esac
+        fi
+
+        case "$code" in
+            401|403)
+                err "认证失败 (HTTP $code)：$msg"
+                err "检查 key 是否正确： agent config set key <你的 key>"
+                ;;
+            404)
+                err "接口不存在 (HTTP 404)：$msg"
+                err "检查 url 是否指向 Responses 接口： agent config set url <.../v1/responses>"
+                ;;
+            000)
+                err "连不上服务器：$msg"
+                err "检查 url 和网络： agent config show"
+                ;;
+            *)
+                err "请求失败 (HTTP ${code:-?})：$msg"
+                ;;
+        esac
         return 1
     done
 }
