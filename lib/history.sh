@@ -70,12 +70,12 @@ history_dump() {
     history_paths
     [ -s "$HISTORY_FILE" ] || { say "（对话为空）"; return; }
     jq -r '
-        if .type == "message" and .role == "user" then
+        if ._kind == "compaction" then
+            "[90m[摘要] " + ([.content[]? | .text] | join("\n")) + "[0m"
+        elif .type == "message" and .role == "user" then
             "[32m你:[0m " + ([.content[]? | select(.type=="input_text") | .text] | join("\n"))
         elif .type == "message" and .role == "assistant" then
             "[34m助理:[0m " + ([.content[]? | select(.type=="output_text") | .text] | join("\n"))
-        elif .type == "message" and .role == "system" then
-            "[90m[摘要] " + ([.content[]? | .text] | join("\n")) + "[0m"
         elif .type == "function_call" then
             "[90m  → " + .name + " " + (.arguments|tostring|.[0:120]) + "[0m"
         elif .type == "function_call_output" then
