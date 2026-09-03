@@ -59,8 +59,6 @@ agent_turn() {
     history_append "$(jq -n --arg t "$user_text" \
         '{type:"message", role:"user", content:[{type:"input_text", text:$t}]}')"
 
-    compact_maybe
-
     tools="$(tools_definitions)"
     instructions="$(system_prompt)"
 
@@ -70,6 +68,10 @@ agent_turn() {
             warn "已达最大轮数 $AGENT_MAX_ROUNDS，停下了。"
             return 0
         fi
+
+        # 每次请求前都看一眼水位 —— 工具循环才是上下文增长的大头,只在轮开头看一次不够。
+        # 依据是最近一次应答存下的 total_tokens;压完 history.jsonl 已经是新的,下面照常读
+        compact_maybe
 
         input="$(history_items)"
         spin_start

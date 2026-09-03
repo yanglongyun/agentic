@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 上下文压缩
 #
-# 触发：上一轮 API 返回的 usage.total_tokens 超过 AGENT_COMPACT_AT。
+# 触发：每次请求前检查，最近一次 API 返回的 usage.total_tokens 超过 AGENT_COMPACT_AT 就压。
+#       工具循环内也检查 —— 一轮里连续调几十次工具，上下文在轮内就能撑爆。
 # 做法：早期上下文 → 模型摘要（失败则机械摘要）→ 摘要 + 近期原文。
 # 切点必须落在一条 user 消息上，否则保留段开头会出现孤儿 function_call_output，API 会报错。
 # 原文一条都不丢，全在 archive.jsonl 里。
