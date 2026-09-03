@@ -13,7 +13,7 @@ api_call() {
         --arg ins "$instructions" \
         --argjson input "$input" \
         --argjson tools "$tools" \
-        '{model:$model, instructions:$ins, input:$input, tools:$tools, store:false}')" \
+        '{model:$model, instructions:$ins, input:($input | map(del(._kind))), tools:$tools, store:false}')" \
         || { err "构建请求体失败"; return 1; }
 
     while :; do

@@ -56,13 +56,14 @@ compact_now() {
     fi
 
     local head_item
+    # 摘要就是一条普通的 user 消息;_kind 只给本地看(history 命令据此标成摘要),发请求前 api_call 会剥掉
     head_item="$(jq -n --arg s "$summary" '{
-        type:"message", role:"user",
-        content:[{type:"input_text", text:("[以下是之前对话的摘要，原文已归档]\n\n" + $s)}]
+        type:"message", role:"user", _kind:"compaction",
+        content:[{type:"input_text", text:("以下是历史上下文压缩摘要:\n\n" + $s)}]
     }')"
 
     # 摘要也进归档，方便回溯每次压缩
-    printf '%s\n' "$(printf '%s' "$head_item" | jq -c '. + {_compaction:true}')" >>"$ARCHIVE_FILE"
+    printf '%s\n' "$(printf '%s' "$head_item" | jq -c .)" >>"$ARCHIVE_FILE"
 
     history_replace "$(jq -n --argjson h "$head_item" --argjson k "$keep" '[$h] + $k')"
     state_set_tokens 0
