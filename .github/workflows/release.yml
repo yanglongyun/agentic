@@ -1,0 +1,45 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, ext: "", archive: tar.gz }
+          - { goos: linux, goarch: arm64, ext: "", archive: tar.gz }
+          - { goos: darwin, goarch: amd64, ext: "", archive: tar.gz }
+          - { goos: darwin, goarch: arm64, ext: "", archive: tar.gz }
+          - { goos: windows, goarch: amd64, ext: .exe, archive: zip }
+          - { goos: windows, goarch: arm64, ext: .exe, archive: zip }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - run: go test ./...
+      - name: Build
+        env: { GOOS: "${{ matrix.goos }}", GOARCH: "${{ matrix.goarch }}", CGO_ENABLED: "0" }
+        run: go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME#v}" -o "dist/agent${{ matrix.ext }}" ./cmd/agent
+      - name: Archive
+        run: |
+          cd dist
+          if [ "${{ matrix.archive }}" = zip ]; then zip "agent_${{ matrix.goos }}_${{ matrix.goarch }}.zip" "agent${{ matrix.ext }}"; else tar -czf "agent_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" agent; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/agent_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.archive }}
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - run: cd dist && sha256sum * > checksums.txt
+      - uses: softprops/action-gh-release@v2
+        with: { files: "dist/*", generate_release_notes: true }

@@ -1,120 +1,101 @@
-# agent-cli
+# agentic
 
-一个 shell 脚本写的 AI agent。用 OpenAI Responses API 跑 agent 循环，四个工具，
-全局一个对话存成 jsonl，上下文自动压缩。
-
-新开一台服务器，一行命令装上，填好 url / key / model 就能对话。
-除了 `bash` `curl` `jq`，不需要任何运行时。
+一个安装在终端里的跨平台 AI agent。使用 OpenAI Responses API 运行工具循环，支持
+Linux、macOS 和 Windows。发布包是单个 Go 二进制，用户不需要安装 Go、Python 或 Node.js。
 
 ## 安装
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/yanglongyun/agent-cli/main/install.sh | bash
+Linux / macOS：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/yanglongyun/agentic/main/install.sh | sh
 ```
 
-装到 `~/.agent-cli`，`agent` 链到 `/usr/local/bin`（没权限就 `~/.local/bin`）。
-缺 `jq` 会自动用 apt / yum / apk 装上。
+Windows PowerShell：
 
-然后：
+```powershell
+irm https://raw.githubusercontent.com/yanglongyun/agentic/main/install.ps1 | iex
+```
 
-```bash
-agent config     # 填 url / key / model
-agent            # 开始对话
+然后配置并开始对话：
+
+```sh
+agent config
+agent
 ```
 
 ## 用法
 
-```bash
-agent                      # 进对话
-agent "看下磁盘还剩多少"     # 问一句就走，接的是同一个会话
-echo "分析这个日志" | agent  # 管道也行
+```sh
+agent                         # 交互对话
+agent "检查一下磁盘空间"      # 单次提问，接着当前会话
+echo "分析这个日志" | agent
 
-agent history              # 打印当前对话
-agent compact              # 立刻压缩上下文
-agent reset                # 清空对话（原文仍在归档里）
-agent config show          # 看配置
-agent config set model gpt-4o
+agent config show
+agent config set model gpt-4o-mini
+agent history
+agent compact
+agent reset
+agent version
 ```
-
-对话里可用 `/exit` `/reset` `/compact` `/history` `/config` `/help`。
 
 ## 工具
 
-| 工具 | 说明 |
+| 工具 | 功能 |
 |---|---|
-| `bash` | 执行 shell 命令，带超时，输出超长自动截断 |
-| `read` | 读文件，文本带行号；**图片直接给模型看**（png/jpg/gif/webp） |
-| `write` | 整文件写入，父目录自动建 |
-| `edit` | 精确字符串替换，默认要求唯一匹配，可 `replace_all` |
+| `shell` | Linux/macOS 使用 Bash，Windows 使用 PowerShell，支持超时和输出截断 |
+| `read` | 读取带行号文本；png/jpg/gif/webp 会作为图片交给模型 |
+| `write` | 完整写入文件，自动创建父目录 |
+| `edit` | 精确字符串替换，默认要求唯一匹配 |
 
-图片走的是一条单独的路：Responses API 的 `function_call_output` 只吃字符串，
-所以 `read` 读到图片时把 data URL 落到临时文件，主循环在工具结果后面补一条
-带 `input_image` 的消息 —— 模型下一轮就真的看得见这张图。
+Agent 最多连续运行 50 轮。对话超过配置的 token 水位后，会总结早期上下文并保留近期原文；
+完整消息仍追加保存在 `archive.jsonl`。
 
-## 上下文压缩
+## 数据位置
 
-每次 API 返回的 `usage.total_tokens` 超过 `compact-at`（默认 60000），
-下一轮开始前压缩早期上下文：
-
-```text
-早期上下文 → 模型摘要（失败则机械摘要）→ 摘要 + 最近若干条原文
-```
-
-切点必须落在一条 user 消息上，否则保留段开头会出现孤儿 `function_call_output`，API 会报错。
-
-**原文一条都不丢**：`history.jsonl` 是会被压缩重写的当前上下文，
-`archive.jsonl` 只追加，每条消息和每次压缩的摘要都在里面。
-
-## 文件
-
-```text
-agent-cli/
-├── bin/agent           入口：命令分发 + REPL
-├── lib/
-│   ├── util.sh         颜色、日志、依赖检查、截断
-│   ├── config.sh       配置读写
-│   ├── history.sh      jsonl 历史 + 归档 + 运行状态
-│   ├── api.sh          Responses API 调用（含重试）
-│   ├── tools.sh        工具注册与分发
-│   ├── compact.sh      上下文压缩
-│   ├── loop.sh         agent 循环 + 系统提示词
-│   └── tools/          bash.sh · read.sh · write.sh · edit.sh
-├── install.sh          一键安装
-└── test/               假 API + 端到端自测
-```
-
-数据都在 `~/.local/share/agent-cli/`：
-
-| 文件 | 内容 |
-|---|---|
-| `history.jsonl` | 当前上下文，一行一个 Responses API item，会被压缩重写 |
-| `archive.jsonl` | 只追加，完整原文，永不丢 |
-| `state.json` | 最近一次 usage |
-
-配置在 `~/.config/agent-cli/config`（权限 600）：
-
-| 项 | 默认 | 说明 |
+| 平台 | 配置 | 会话数据 |
 |---|---|---|
-| `url` | `https://api.openai.com/v1/responses` | Responses API 地址 |
-| `key` | — | API Key |
-| `model` | `gpt-4o-mini` | 模型 |
-| `compact-at` | `60000` | 压缩水位（token） |
-| `keep` | `20` | 压缩时至少保留多少条 |
-| `timeout` | `120` | 单个工具执行超时（秒） |
-| `max-output` | `30000` | 工具输出截断（字符） |
-| `system` | — | 自定义系统提示词，留空用内置 |
+| Linux | `~/.config/agentic/config.json` | `~/.local/share/agentic/` |
+| macOS | `~/Library/Application Support/agentic/config.json` | 同目录 |
+| Windows | `%APPDATA%\agentic\config.json` | `%LOCALAPPDATA%\agentic\` |
 
-同名环境变量（`AGENT_URL` / `AGENT_KEY` / `AGENT_MODEL` …）优先于配置文件。
+环境变量 `AGENT_URL`、`AGENT_KEY`、`AGENT_MODEL`、`AGENT_SYSTEM` 优先于配置文件。
 
-## 测试
+## 开发
 
-```bash
-./test/run.sh
+需要 Go 1.22 或更新版本：
+
+```sh
+make check
+make build
+./dist/agent version
 ```
 
-起一个假的 Responses API，用真的 agent 循环跑一遍：工具调用回传、
-write/edit 的尾部换行、edit 的唯一性检查、图片转 `input_image`、压缩切点、
-配置文件权限，一共 27 项。
+本地交叉编译示例：
+
+```sh
+GOOS=windows GOARCH=amd64 go build -o dist/agent.exe ./cmd/agent
+```
+
+## 发布
+
+推送版本标签后，GitHub Actions 会测试并生成六个发布包：
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+- Linux amd64 / arm64
+- macOS amd64 / arm64
+- Windows amd64 / arm64
+
+安装脚本检测系统和 CPU 后，从最新的 GitHub Release 下载对应文件。
+
+## 安全说明
+
+`shell` 工具能以当前用户权限执行命令。请在可信目录和低权限账户中使用，不要把 API Key
+写入提示词、命令输出或仓库文件。
 
 ## License
 
