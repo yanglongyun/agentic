@@ -1,0 +1,7 @@
+# 构建产物
+/dist/
+/agent
+/agent.exe
+
+# 本地
+*.log

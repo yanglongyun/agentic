@@ -14,6 +14,7 @@ import (
 	"github.com/yanglongyun/agentic/internal/config"
 	"github.com/yanglongyun/agentic/internal/history"
 	"github.com/yanglongyun/agentic/internal/tools"
+	"github.com/yanglongyun/agentic/internal/ui"
 )
 
 type Agent struct {
@@ -64,8 +65,10 @@ func (a *Agent) Turn(ctx context.Context, text string) (string, error) {
 				if callID == "" {
 					callID, _ = item["id"].(string)
 				}
-				fmt.Fprintf(os.Stderr, "  %s %s\n", name, short(args, 160))
+				ui.ToolCall(name, args, 160)
+				started := time.Now()
 				r := a.Tools.Run(ctx, name, args)
+				ui.ToolResult(time.Since(started), r.Text)
 				if err := a.History.Append(map[string]any{"type": "function_call_output", "call_id": callID, "output": r.Text}); err != nil {
 					return "", err
 				}

@@ -7,12 +7,14 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/yanglongyun/agentic/internal/agent"
 	"github.com/yanglongyun/agentic/internal/api"
 	"github.com/yanglongyun/agentic/internal/config"
 	"github.com/yanglongyun/agentic/internal/history"
 	"github.com/yanglongyun/agentic/internal/tools"
+	"github.com/yanglongyun/agentic/internal/ui"
 )
 
 func Run(args []string, version string) error {
@@ -82,15 +84,17 @@ func one(a *agent.Agent, text string) error {
 	}
 	out, err := a.Turn(context.Background(), text)
 	if out != "" {
-		fmt.Println(out)
+		fmt.Print(ui.Markdown(out))
 	}
 	return err
 }
+
 func repl(a *agent.Agent, version string) error {
-	fmt.Printf("agent %s  %s\n/help 查看命令，/exit 退出。\n\n", version, a.Config.Model)
+	fmt.Fprint(os.Stdout, ui.Banner(version, a.Config.Model))
 	in := bufio.NewScanner(os.Stdin)
+	in.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for {
-		fmt.Print("你 › ")
+		fmt.Print(ui.Prompt("你 › "))
 		if !in.Scan() {
 			fmt.Println()
 			return in.Err()
@@ -100,36 +104,54 @@ func repl(a *agent.Agent, version string) error {
 		case "":
 			continue
 		case "/exit", "/quit":
+			fmt.Println(ui.Dim("再见。"))
 			return nil
 		case "/help":
-			fmt.Println("/exit /reset /compact /history /config /help")
+			fmt.Print(ui.Help())
+			continue
+		case "/status":
+			printStatus(a)
 			continue
 		case "/reset":
 			if e := a.History.Reset(); e != nil {
-				return e
+				printErr(e)
+				continue
 			}
-			fmt.Println("对话已清空")
+			fmt.Println(ui.Green("✓ ") + "对话已清空")
 			continue
 		case "/history":
 			if e := printHistory(a.History); e != nil {
-				return e
+				printErr(e)
 			}
 			continue
 		case "/compact":
 			if e := a.Compact(context.Background()); e != nil {
-				return e
+				printErr(e)
+				continue
 			}
-			fmt.Println("已压缩")
+			fmt.Println(ui.Green("✓ ") + "已压缩上下文")
 			continue
 		}
+		started := time.Now()
 		out, e := a.Turn(context.Background(), s)
 		if out != "" {
-			fmt.Println("助理 ›", out)
+			fmt.Print(ui.LabelAssistant("\n助理 › ") + "\n" + ui.Markdown(out))
 		}
 		if e != nil {
-			fmt.Fprintln(os.Stderr, "错误：", e)
+			printErr(e)
+			continue
 		}
+		fmt.Print(ui.Footer(time.Since(started), a.History.Tokens(), a.Config.CompactAt))
 	}
+}
+
+func printStatus(a *agent.Agent) {
+	pwd, _ := os.Getwd()
+	fmt.Print(ui.StatusLine(a.Config.Model, a.Config.URL, pwd, a.History.Tokens(), a.Config.CompactAt))
+}
+
+func printErr(e error) {
+	fmt.Fprintln(os.Stderr, ui.Red("错误：")+fmt.Sprint(e))
 }
 func configCommand(args []string, p config.Paths, c *config.Config) error {
 	if len(args) == 0 {
