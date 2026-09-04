@@ -38,18 +38,7 @@ func DefaultPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	var configDir, dataDir string
-	switch runtime.GOOS {
-	case "windows":
-		configDir = filepath.Join(firstEnv("APPDATA", home), "agentic")
-		dataDir = filepath.Join(firstEnv("LOCALAPPDATA", home), "agentic")
-	case "darwin":
-		configDir = filepath.Join(home, "Library", "Application Support", "agentic")
-		dataDir = configDir
-	default:
-		configDir = filepath.Join(firstEnv("XDG_CONFIG_HOME", filepath.Join(home, ".config")), "agentic")
-		dataDir = filepath.Join(firstEnv("XDG_DATA_HOME", filepath.Join(home, ".local", "share")), "agentic")
-	}
+	configDir, dataDir := platformDirs(runtime.GOOS, home, os.Getenv)
 	if v := os.Getenv("AGENT_CONFIG_DIR"); v != "" {
 		configDir = v
 	}
@@ -57,6 +46,24 @@ func DefaultPaths() (Paths, error) {
 		dataDir = v
 	}
 	return Paths{ConfigDir: configDir, DataDir: dataDir, Config: filepath.Join(configDir, "config.json")}, nil
+}
+
+func platformDirs(goos, home string, getenv func(string) string) (string, string) {
+	first := func(k, fallback string) string {
+		if v := getenv(k); v != "" {
+			return v
+		}
+		return fallback
+	}
+	switch goos {
+	case "windows":
+		return filepath.Join(first("APPDATA", home), "agentic"), filepath.Join(first("LOCALAPPDATA", home), "agentic")
+	case "darwin":
+		base := filepath.Join(home, "Library", "Application Support", "agentic")
+		return base, filepath.Join(base, "data")
+	default:
+		return filepath.Join(first("XDG_CONFIG_HOME", filepath.Join(home, ".config")), "agentic"), filepath.Join(first("XDG_DATA_HOME", filepath.Join(home, ".local", "share")), "agentic")
+	}
 }
 
 func Load(p Paths) (Config, error) {
@@ -177,12 +184,6 @@ func mask(k string) string {
 		return "***"
 	}
 	return k[:6] + "..." + k[len(k)-4:]
-}
-func firstEnv(k, fallback string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return fallback
 }
 func applyEnv(c *Config) {
 	if v := os.Getenv("AGENT_URL"); v != "" {

@@ -56,7 +56,7 @@ Agent 最多连续运行 50 轮。对话超过配置的 token 水位后，会总
 | 平台 | 配置 | 会话数据 |
 |---|---|---|
 | Linux | `~/.config/agentic/config.json` | `~/.local/share/agentic/` |
-| macOS | `~/Library/Application Support/agentic/config.json` | 同目录 |
+| macOS | `~/Library/Application Support/agentic/config.json` | `~/Library/Application Support/agentic/data/` |
 | Windows | `%APPDATA%\agentic\config.json` | `%LOCALAPPDATA%\agentic\` |
 
 环境变量 `AGENT_URL`、`AGENT_KEY`、`AGENT_MODEL`、`AGENT_SYSTEM` 优先于配置文件。
