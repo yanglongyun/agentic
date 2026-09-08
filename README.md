@@ -11,6 +11,10 @@ Linux / macOS：
 curl -fsSL https://raw.githubusercontent.com/yanglongyun/agentic/main/install.sh | sh
 ```
 
+root 默认安装到 `/usr/local/bin`，普通用户默认安装到 `~/.local/bin`。
+可通过环境变量 `AGENT_BIN_DIR` 指定安装目录。如果该目录不在 PATH 中，
+请执行安装脚本输出的 `export PATH=...` 命令，或使用输出的完整路径启动。
+
 Windows PowerShell：
 
 ```powershell

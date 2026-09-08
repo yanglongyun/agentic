@@ -2,7 +2,12 @@
 set -eu
 REPO="${AGENT_REPO:-yanglongyun/agentic}"
 VERSION="${AGENT_VERSION:-latest}"
-BIN_DIR="${AGENT_BIN_DIR:-$HOME/.local/bin}"
+if [ "$(id -u)" = 0 ]; then
+  default_bin_dir=/usr/local/bin
+else
+  default_bin_dir="$HOME/.local/bin"
+fi
+BIN_DIR="${AGENT_BIN_DIR:-$default_bin_dir}"
 command -v curl >/dev/null 2>&1 || { echo "缺少 curl" >&2; exit 1; }
 command -v tar >/dev/null 2>&1 || { echo "缺少 tar" >&2; exit 1; }
 case "$(uname -s)" in Linux) os=linux;; Darwin) os=darwin;; *) echo "不支持的系统；Windows 请使用 install.ps1" >&2; exit 1;; esac
@@ -16,5 +21,14 @@ tar -xzf "$tmp/agent.tar.gz" -C "$tmp"
 mkdir -p "$BIN_DIR"
 install -m 0755 "$tmp/agent" "$BIN_DIR/agent"
 echo "已安装：$BIN_DIR/agent"
-case ":$PATH:" in *":$BIN_DIR:"*) ;; *) echo "请把 $BIN_DIR 加入 PATH：export PATH=\"\$PATH:$BIN_DIR\"";; esac
-echo "下一步：agent config"
+case ":$PATH:" in
+  *":$BIN_DIR:"*) echo "下一步：agent config" ;;
+  *)
+    # Quote paths for copying into a shell, including paths containing apostrophes.
+    quoted_bin_dir=$(printf '%s' "$BIN_DIR" | sed "s/'/'\\\\''/g")
+    echo "当前 PATH 不包含安装目录。请在当前终端执行："
+    printf "export PATH='%s':\"\$PATH\"\n" "$quoted_bin_dir"
+    echo "如需永久生效，请将上面一行加入 shell 启动文件（如 ~/.bashrc 或 ~/.zshrc）。"
+    printf "也可以直接运行：'%s/agent' config\n" "$quoted_bin_dir"
+    ;;
+esac
