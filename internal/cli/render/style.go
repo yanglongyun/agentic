@@ -1,6 +1,6 @@
 // Package ui 提供纯标准库实现的终端样式与 markdown 渲染。
 // 不依赖任何第三方库；是否输出 ANSI 由终端能力自动判定，也可用环境变量强制。
-package ui
+package render
 
 import (
 	"fmt"
@@ -118,7 +118,7 @@ func shorten(s string, n int) string {
 }
 
 // fprintlnStderr 把一行文本写到 stderr（工具调用/耗时这类过程信息走这里，
-// 保证 `agent "..." | grep` 这种管道调用时 stdout 仍是干净的正文）。
+// 输出重定向时不添加颜色转义序列）。
 func fprintlnStderr(s string) {
 	fmt.Fprintln(os.Stderr, s)
 }

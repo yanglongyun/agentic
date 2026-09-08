@@ -18,3 +18,41 @@ func TestPlatformDirs(t *testing.T) {
 		t.Fatalf("linux paths: config=%q data=%q", cfg, data)
 	}
 }
+
+func TestUnifiedPaths(t *testing.T) {
+	t.Setenv("AGENT_HOME", t.TempDir())
+	t.Setenv("AGENT_CONFIG_DIR", t.TempDir())
+	t.Setenv("AGENT_DATA_DIR", t.TempDir())
+	p, err := DefaultPaths()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.ConfigDir != p.DataDir || p.Config != filepath.Join(p.DataDir, "config.json") {
+		t.Fatal(p)
+	}
+}
+
+func TestPromptConfigRoundTrip(t *testing.T) {
+	root := t.TempDir()
+	p := Paths{ConfigDir: root, DataDir: root, Config: filepath.Join(root, "config.json")}
+	t.Setenv("AGENT_SYSTEM", "")
+	c, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.System == "" || c.CompactSystem == "" || c.URL != "https://api.openai.com/v1/responses" {
+		t.Fatal("invalid defaults")
+	}
+	for key, value := range map[string]string{"system": "custom-main", "compact-system": "custom-summary", "compact-prefix": "prefix:"} {
+		if err = Set(&c, key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = Save(p, c); err != nil {
+		t.Fatal(err)
+	}
+	c, err = Load(p)
+	if err != nil || c.System != "custom-main" || c.CompactSystem != "custom-summary" || c.CompactPrefix != "prefix:" {
+		t.Fatal(c, err)
+	}
+}

@@ -9,8 +9,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/yanglongyun/agentic/internal/api"
+	"github.com/yanglongyun/agentic/internal/ai"
 	"github.com/yanglongyun/agentic/internal/config"
+	"github.com/yanglongyun/agentic/internal/events"
 	"github.com/yanglongyun/agentic/internal/history"
 	"github.com/yanglongyun/agentic/internal/tools"
 )
@@ -55,13 +56,18 @@ func TestToolLoop(t *testing.T) {
 	c.URL = srv.URL
 	c.Key = "test"
 	c.Model = "test"
-	a := &Agent{Config: c, API: &api.Client{URL: c.URL, Key: c.Key, Model: c.Model}, History: h, Tools: tools.New(5, 30000)}
+	a := &Agent{Config: c, API: &ai.Client{URL: c.URL, Key: c.Key, Model: c.Model}, History: h, Tools: tools.New(5, 30000)}
+	var emitted []events.Event
+	a.Emit = func(e events.Event) { emitted = append(emitted, e) }
 	out, err := a.Turn(context.Background(), "执行")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if out != "完成" {
 		t.Fatalf("out=%q", out)
+	}
+	if len(emitted) != 3 || emitted[0].Type != events.ToolCall || emitted[0].Name != "shell" || emitted[0].CallID != "c1" || emitted[1].Type != events.ToolResult || emitted[2].Type != events.Message {
+		t.Fatalf("unexpected events: %+v", emitted)
 	}
 	if calls.Load() != 2 {
 		t.Fatalf("calls=%d", calls.Load())

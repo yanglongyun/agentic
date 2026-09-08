@@ -1,4 +1,4 @@
-package ui
+package render
 
 import (
 	"fmt"
@@ -39,7 +39,6 @@ func Help() string {
 	b.WriteString(cmd("/exit, /quit", "退出") + "\n")
 	b.WriteString(cmd("/history", "查看当前对话") + "\n")
 	b.WriteString(cmd("/compact", "压缩早期上下文") + "\n")
-	b.WriteString(cmd("/reset", "清空对话（归档保留）") + "\n")
 	b.WriteString(group("状态与配置"))
 	b.WriteString(cmd("/status", "模型 / 目录 / token 用量") + "\n")
 	b.WriteString(cmd("/help", "本帮助") + "\n")

@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +14,16 @@ import (
 )
 
 type Config struct {
-	URL       string `json:"url"`
-	Key       string `json:"key"`
-	Model     string `json:"model"`
-	CompactAt int    `json:"compact_at"`
-	Keep      int    `json:"keep"`
-	Timeout   int    `json:"timeout"`
-	MaxOutput int    `json:"max_output"`
-	System    string `json:"system"`
+	URL           string `json:"url"`
+	Key           string `json:"key"`
+	Model         string `json:"model"`
+	CompactAt     int    `json:"compact_at"`
+	Keep          int    `json:"keep"`
+	Timeout       int    `json:"timeout"`
+	MaxOutput     int    `json:"max_output"`
+	System        string `json:"system"`
+	CompactSystem string `json:"compact_system"`
+	CompactPrefix string `json:"compact_prefix"`
 }
 
 type Paths struct {
@@ -29,8 +32,15 @@ type Paths struct {
 	Config    string
 }
 
+//go:embed defaults.json
+var defaultsJSON []byte
+
 func Default() Config {
-	return Config{URL: "https://api.openai.com/v1/responses", Model: "gpt-4o-mini", CompactAt: 60000, Keep: 20, Timeout: 120, MaxOutput: 30000}
+	var c Config
+	if err := json.Unmarshal(defaultsJSON, &c); err != nil {
+		panic(err)
+	}
+	return c
 }
 
 func DefaultPaths() (Paths, error) {
@@ -38,14 +48,18 @@ func DefaultPaths() (Paths, error) {
 	if err != nil {
 		return Paths{}, err
 	}
-	configDir, dataDir := platformDirs(runtime.GOOS, home, os.Getenv)
+	configDir, _ := platformDirs(runtime.GOOS, home, os.Getenv)
 	if v := os.Getenv("AGENT_CONFIG_DIR"); v != "" {
 		configDir = v
 	}
+	root := configDir
 	if v := os.Getenv("AGENT_DATA_DIR"); v != "" {
-		dataDir = v
+		root = v
 	}
-	return Paths{ConfigDir: configDir, DataDir: dataDir, Config: filepath.Join(configDir, "config.json")}, nil
+	if v := os.Getenv("AGENT_HOME"); v != "" {
+		root = v
+	}
+	return Paths{ConfigDir: root, DataDir: root, Config: filepath.Join(root, "config.json")}, nil
 }
 
 func platformDirs(goos, home string, getenv func(string) string) (string, string) {
@@ -74,6 +88,8 @@ func Load(p Paths) (Config, error) {
 			return c, fmt.Errorf("配置文件格式错误：%w", err)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
+		return c, err
+	} else if err = Save(p, c); err != nil {
 		return c, err
 	}
 	applyEnv(&c)
@@ -115,6 +131,10 @@ func Set(c *Config, key, value string) error {
 		c.Model = value
 	case "system":
 		c.System = value
+	case "compact-system":
+		c.CompactSystem = value
+	case "compact-prefix":
+		c.CompactPrefix = value
 	case "compact-at":
 		n, e := intValue()
 		if e != nil {

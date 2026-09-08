@@ -1,0 +1,91 @@
+# HTTP 任务 API
+
+先配置模型：`agent config`。然后在希望 agent 工作的目录启动：
+
+```sh
+export AGENT_SERVER_TOKEN="$(openssl rand -hex 32)"
+agent serve --listen 127.0.0.1:9528 --concurrency 4 --max-depth 2 --task-timeout 10m
+```
+
+保管生成的令牌，并让网站后端读取同一个值。所有接口，包括健康检查，都要求
+`Authorization: Bearer <token>`。令牌至少 16 字符，与模型 API Key 独立。
+网站浏览器应通过自己的网站后端访问服务，不把此令牌放进前端代码。
+该 API 是单一可信使用者的机器控制接口，不提供多租户隔离或文件系统沙箱。
+所有任务以服务进程的用户权限运行，使用服务启动目录；不同会话共享机器文件。
+不要同时启动多个服务进程使用同一个数据根目录，也不要让 CLI 与 HTTP 同时操作同一个会话。
+
+## 创建和查询任务
+
+```sh
+curl -sS http://127.0.0.1:9528/v1/tasks \
+  -H "Authorization: Bearer $AGENT_SERVER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"查看当前目录并概括项目","session_id":"website-chat-1"}'
+```
+
+返回 HTTP 202 和 JSON，包含 `id`、`session_id`、`status`、`depth`、`created_at`。
+省略 `session_id` 会创建新会话；传入之前的值可以继续对话。同一会话有任务未结束时返回 409。
+会话 ID 仅支持 1–64 个字母、数字、下划线和连字符。prompt 最大 128 KiB。
+
+将返回的任务 ID 放入以下命令：
+
+```sh
+TASK_ID=替换成返回的id
+curl -sS "http://127.0.0.1:9528/v1/tasks/$TASK_ID" \
+  -H "Authorization: Bearer $AGENT_SERVER_TOKEN"
+```
+
+状态依次为 `queued`、`running`，最终为 `completed`、`failed` 或 `cancelled`。
+最终结果在 `result`，失败原因在 `error`，结束时间在 `finished_at`。
+任务异步执行，创建请求或事件连接断开不会取消任务。
+
+## 实时事件和取消
+
+```sh
+curl -N "http://127.0.0.1:9528/v1/tasks/$TASK_ID/events" \
+  -H "Authorization: Bearer $AGENT_SERVER_TOKEN"
+
+curl -sS -X POST "http://127.0.0.1:9528/v1/tasks/$TASK_ID/cancel" \
+  -H "Authorization: Bearer $AGENT_SERVER_TOKEN"
+```
+
+事件使用 SSE，每条 JSON 包含 `id`、`type`、`text`。
+类型包括 `status`、`message`、`tool_call`、`tool_result`、`child`、`warning`。
+工具事件还提供 `name`、`arguments`、`call_id`，工具结果附带 `duration_ns`（纳秒）。
+原有 `id`、`type`、`text` 字段保留；回放中的 text 和 arguments 各截断到约 8 KiB。
+`child` 的 text 是子任务 ID，可通过同样的查询、事件和取消接口访问。
+这是消息和工具完成粒度的进度流，不是模型逐 token 输出。
+事件变化时立即唤醒连接，空闲时每 15 秒发送心跳，不轮询任务。
+可发送 `Last-Event-ID` 恢复连接；只保留最近 64 条事件，每条文本最多 8 KiB。
+缺失旧事件时会发送 `gap`，完整最终回答通过任务查询获取。
+取消返回 202 表示已请求取消，查询任务确认最终状态。超时记为 `failed`。
+Linux/macOS 会终止当前 shell 的进程组；主动脱离进程组的后台程序不在此保证内。
+Windows 当前仅保证终止直接子进程。已经写入的文件或其他外部操作不会回滚。
+失败或取消会恢复该轮之前的活动对话，完整消息与压缩记录保留。
+
+## agent 自调用
+
+服务模式提供 `delegate` 工具，模型可以提交完整 prompt 创建独立子任务并等待结果。
+例如提交：“把 README 的检查交给一个子任务，拿到结果后给我总结。”
+子任务使用新会话，不继承历史，返回记录包含 `parent_id`。
+父任务暂停期间，子任务复用该执行名额；`--concurrency 1` 也能工作。
+子任务完成后父任务继续。父任务取消或超时会传递到正在执行的子任务。
+`--max-depth 2` 允许根任务→子任务→孙任务，设 0 禁止子任务。
+
+请使用 delegate 委派，不要让 shell 用管理员令牌创建根任务并同步等待：
+这种方式无法追踪父子关系，在执行名额用尽时可能一直等待到超时。
+这些限制用于协调可信任务，不是防止有 shell 权限的程序绕过限制的安全边界。
+
+## 限制和存储
+
+- `--concurrency` 默认 4，限制实际并行执行；等待 delegate 的父任务不额外占名额。
+- `--task-timeout` 默认 10m，包含排队与所有子任务时间。
+- `--max-tasks` 默认 256，限制内存任务记录总数；容量满时先淘汰已完成记录，没有可淘汰记录则返回 429。
+- 创建新任务时清理超过 24 小时的已完成记录。任务记录和事件不持久化，重启后查询返回 404，未完成任务不自动恢复。
+- CLI 与 HTTP 统一使用数据根目录下的 `sessions/<session_id>/`，每次启动 CLI 都创建新的 `cli-<随机ID>` 会话。每个会话包含 `session.json`、`messages.jsonl`、`compactions.jsonl`；磁盘历史需自行管理保留周期。根目录还包含 `config.json` 和记录当前 CLI 会话的 `state.json`，可通过 `AGENT_HOME` 指定。
+- 健康检查为 `GET /healthz`；接口错误采用 `{"error":"说明"}`。
+
+源码更新后需要编译或发布新的 Go 二进制才能使用 `serve`。
+本地可执行 `go build -o agent ./cmd/agent`；推送 `v*` 标签会由 release 工作流构建发布包。
+
+会话仅支持新格式，不执行旧数据迁移。旧文件保持原样，请使用新数据目录或新会话 ID。
