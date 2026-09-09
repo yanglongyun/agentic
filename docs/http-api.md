@@ -53,7 +53,7 @@ curl -sS "http://127.0.0.1:9528/v1/tasks/$TASK_ID" \
   -H "Authorization: Bearer $AGENT_SERVER_TOKEN"
 ```
 
-状态依次为 `queued`、`running`，最终为 `completed`、`failed` 或 `cancelled`。
+状态从 `queued` 到 `running`，等待子任务时为 `waiting`，最终为 `completed`、`failed` 或 `cancelled`。
 最终结果在 `result`，失败原因在 `error`，结束时间在 `finished_at`。
 任务异步执行，创建请求或事件连接断开不会取消任务。
 
@@ -81,25 +81,36 @@ Linux/macOS 会终止当前 shell 的进程组；主动脱离进程组的后台�
 Windows 当前仅保证终止直接子进程。已经写入的文件或其他外部操作不会回滚。
 失败或取消会恢复该轮之前的活动对话，完整消息与压缩记录保留。
 
-## agent 自调用
+## 异步 agent 工具
 
-通过 HTTP 创建的任务提供 `delegate` 工具，模型可以提交完整 prompt 创建独立子任务并等待结果。
-例如提交：“把 README 的检查交给一个子任务，拿到结果后给我总结。”
-子任务使用新会话，不继承历史，返回记录包含 `parent_id`。
-父任务暂停期间，子任务复用该执行名额；`api.concurrency: 1` 也能工作。
-子任务完成后父任务继续。父任务取消或超时会传递到正在执行的子任务。
-`api.max_depth: 2` 允许根任务→子任务→孙任务，设 0 禁止子任务。
+终端和 HTTP 任务都提供 `agent` 工具，输入 `prompt`，立即返回：
 
-请使用 delegate 委派，不要让 shell 用管理员令牌创建根任务并同步等待：
-这种方式无法追踪父子关系，在执行名额用尽时可能一直等待到超时。
-这些限制用于协调可信任务，不是防止有 shell 权限的程序绕过限制的安全边界。
+```json
+{"agent_id":"子任务 ID","status":"queued"}
+```
+
+子任务独立运行，不继承父会话历史。`agent_id` 可用现有任务查询、SSE 与取消接口访问。
+`child` 事件中的 text 同样是子任务 ID。终端派发的子任务，其 `parent_id` 为父会话 ID；HTTP 派发的子任务，其 `parent_id` 为父任务 ID。
+父任务先继续执行自己的工作，子任务结果随后自动进入父会话并触发回复。
+HTTP 父任务在等待子任务期间状态为 `waiting`，不占用执行名额；全部结果处理完成后变为 `completed`。
+最终 `result` 包含主任务回复及后续结果回复，SSE 也会发送这些消息。
+
+`api.max_depth: 2` 允许主任务 → 子任务 → 孙任务，设为 0 禁止派发。
+子任务超时独立计时，HTTP 父任务取消或超时会传递到子任务。
+终端 Esc / Ctrl+C 中断当前回复，已派发的子任务继续执行；退出程序时全部取消。
+
+子任务数据保存在父会话的 `agents/<agent_id>/`，包含 `state.json`、`messages.jsonl` 和 `compactions.jsonl`。
+嵌套子任务继续保存在自己父任务的 `agents/` 内，均不出现在 `/resume`。
+完成结果先持久化，再通知父会话。父会话串行处理结果，成功后写入回执和子任务 handled 标记。
+中断或崩溃后未提交的结果处理会恢复先前上下文，已提交的回执用于避免重复处理。
+任务执行产生的外部副作用不随上下文恢复而回滚。
 
 ## 限制和存储
 
-- `api.concurrency` 默认 4，限制实际并行执行；等待 delegate 的父任务不额外占名额。
+- `api.concurrency` 默认 4，限制实际并行执行；等待子任务结果的父任务不占名额。
 - `api.task_timeout` 默认 600 秒，包含排队与所有子任务时间。
 - `api.max_tasks` 默认 256，限制内存任务记录总数；容量满时先淘汰已完成记录，没有可淘汰记录则返回 429。
-- 创建新任务时清理超过 24 小时的已完成记录。任务记录和事件不持久化，重启后查询返回 404，未完成任务不自动恢复。
+- 创建新任务时清理超过 24 小时的已完成记录。HTTP 任务索引和 SSE 事件不持久化，重启后查询返回 404；子 agent 的状态和结果保存在会话目录中。未完成的子 agent 不自动重新执行，恢复父会话时会将中断结果交回。
 - CLI 与 HTTP 统一使用数据根目录下的 `sessions/<session_id>/`，CLI 发送第一条消息时才创建新的 `cli-<随机ID>` 会话。每个会话包含 `session.json`、`messages.jsonl`、`compactions.jsonl`；磁盘历史需自行管理保留周期。根目录还包含 `config.json` 和记录当前 CLI 会话的 `state.json`，可通过 `AGENT_HOME` 指定。
 - 健康检查为 `GET /healthz`；接口错误采用 `{"error":"说明"}`。
 

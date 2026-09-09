@@ -85,7 +85,7 @@ func usage(v string, p config.Paths) {
   agent version             查看版本
   agent help                查看命令
 
-工具：shell · read · write · edit
+工具：shell · read · write · edit · agent
 配置：%s
 数据：%s
 `, v, p.Config, p.DataDir)

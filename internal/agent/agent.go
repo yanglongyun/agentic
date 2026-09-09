@@ -21,11 +21,21 @@ type Agent struct {
 	Tools     *tools.Set
 	MaxRounds int
 	Emit      events.Sink
-	Delegate  func(context.Context, string) (string, error)
+	Spawn     func(context.Context, string) (string, error)
 }
 
 func (a *Agent) Turn(ctx context.Context, text string) (string, error) {
-	if err := a.History.Append(message("user", "input_text", text)); err != nil {
+	return a.turn(ctx, text, "")
+}
+func (a *Agent) AgentResults(ctx context.Context, text string) (string, error) {
+	return a.turn(ctx, renderPrompt(a.Config.AgentResultPrefix)+text, "agent_result")
+}
+func (a *Agent) turn(ctx context.Context, text, kind string) (string, error) {
+	input := message("user", "input_text", text)
+	if kind != "" {
+		input["_kind"] = kind
+	}
+	if err := a.History.Append(input); err != nil {
 		return "", err
 	}
 	max := a.MaxRounds
@@ -45,8 +55,8 @@ func (a *Agent) Turn(ctx context.Context, text string) (string, error) {
 			return "", err
 		}
 		defs := tools.Definitions()
-		if a.Delegate != nil {
-			defs = append(defs, map[string]any{"type": "function", "name": "delegate", "description": "创建独立子任务并等待结果。子任务不会继承对话；请给出完整上下文。", "parameters": map[string]any{"type": "object", "properties": map[string]any{"prompt": map[string]any{"type": "string"}}, "required": []string{"prompt"}}})
+		if a.Spawn != nil {
+			defs = append(defs, map[string]any{"type": "function", "name": "agent", "description": "异步启动独立 agent，立即返回 agent_id。完成结果会自动回到当前对话，不要轮询或等待。请提供完整任务说明，子 agent 不继承历史。", "parameters": map[string]any{"type": "object", "properties": map[string]any{"prompt": map[string]any{"type": "string"}}, "required": []string{"prompt"}}})
 		}
 		resp, err := a.API.Call(ctx, items, defs, renderPrompt(a.Config.System))
 		if err != nil {
@@ -78,13 +88,13 @@ func (a *Agent) Turn(ctx context.Context, text string) (string, error) {
 				a.emit(events.Event{Type: events.ToolCall, Text: name + ": " + args, Name: name, Arguments: args, CallID: callID})
 				started := time.Now()
 				var r tools.Result
-				if name == "delegate" && a.Delegate != nil {
+				if name == "agent" && a.Spawn != nil {
 					var input struct {
 						Prompt string `json:"prompt"`
 					}
 					e := json.Unmarshal([]byte(args), &input)
 					if e == nil {
-						r.Text, e = a.Delegate(ctx, input.Prompt)
+						r.Text, e = a.Spawn(ctx, input.Prompt)
 					}
 					if e != nil {
 						r.Text = "错误：" + e.Error()

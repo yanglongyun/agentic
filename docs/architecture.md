@@ -31,7 +31,7 @@ agentic/
 │   ├── task/
 │   │   ├── manager.go      任务创建、容量、状态、事件与会话互斥
 │   │   ├── run.go          排队执行、超时、历史恢复
-│   │   └── delegate.go     子任务创建与等待
+│   │   └── agents.go       异步派发、结果通知与回传
 │   ├── server/
 │   │   ├── server.go       HTTP 服务配置、启动、关闭
 │   │   ├── routes.go       请求解析、任务接口、错误状态码
@@ -66,7 +66,9 @@ agent → events → cli/render 显示
 agent 不导入终端渲染或 HTTP 服务；task 不处理鉴权、HTTP 请求和状态码。
 任务管理器返回业务错误，由 server 转成 400、409、429、503 等 HTTP 状态。
 终端与服务端各自消费事件，避免核心循环里判断“这是终端还是网站”。
-`delegate` 由 task 注入 agent；子任务复用暂停父任务的执行名额。
+`agent` 工具由 task 注入，派发后立即返回 ID。父任务等待回传时释放执行名额。
+子任务嵌套保存于父会话的 agents/；history/agents.go 保存状态、回传事务与处理回执。
+CLI 空闲时消费当前会话结果，未选中的会话由任务管理器处理结果，避免后台输出串入当前终端。
 
 ## 修改功能时去哪里
 

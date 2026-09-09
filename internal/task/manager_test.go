@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -43,40 +44,51 @@ func wait(t *testing.T, task *Task) {
 		t.Fatal("task stuck")
 	}
 }
-func TestDelegateOneWorker(t *testing.T) {
+func TestAsyncAgentOneWorker(t *testing.T) {
 	s := setup(t, func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Input []map[string]any `json:"input"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		b, _ := json.Marshal(body.Input)
-		if strings.Contains(string(b), "function_call_output") {
-			answer(w, "parent done")
-			return
-		}
-		if strings.Contains(string(b), "child prompt") {
+		json.NewDecoder(r.Body).Decode(&body)
+		raw, _ := json.Marshal(body.Input)
+		switch {
+		case strings.Contains(string(raw), "child done"):
+			answer(w, "parent integrated")
+		case strings.Contains(string(raw), "function_call_output"):
+			answer(w, "parent continues")
+		case strings.Contains(string(raw), "child prompt"):
 			answer(w, "child done")
-			return
+		default:
+			json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"type": "function_call", "name": "agent", "call_id": "c1", "arguments": `{"prompt":"child prompt"}`}}})
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"type": "function_call", "name": "delegate", "call_id": "c1", "arguments": `{"prompt":"child prompt"}`}}})
 	}, 1)
-	root, _, err := s.create(Request{Prompt: "parent"}, nil)
+	root, err := s.Submit(Request{Prompt: "parent", SessionID: "root"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	go s.execute(root, false)
 	wait(t, root)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if root.Status != "completed" || root.Result != "parent done" {
-		t.Fatal(root.Status, root.Error)
+	snapshot := s.Snapshot(root)
+	if snapshot.Status != "completed" || snapshot.Result != "parent continues\n\nparent integrated" {
+		t.Fatal(snapshot.Status, snapshot.Result, snapshot.Error)
 	}
-	if len(s.tasks) != 2 {
-		t.Fatal(len(s.tasks))
+	sessions, err := history.List(filepath.Dir(s.dir))
+	if err != nil || len(sessions) != 1 {
+		t.Fatal(sessions, err)
 	}
-	for _, task := range s.tasks {
-		if task.ParentID == root.ID && (task.Result != "child done" || task.SessionID == root.SessionID || task.Depth != 1) {
-			t.Fatal(task)
+	for _, child := range s.tasks {
+		if child.ParentID != root.ID {
+			continue
+		}
+		if child.dir != filepath.Join(root.dir, "agents", child.ID) {
+			t.Fatal(child.dir)
+		}
+		record, err := history.ReadAgent(child.dir)
+		if err != nil || !record.Handled || record.Result != "child done" {
+			t.Fatal(record, err)
+		}
+		files, err := os.ReadDir(child.dir)
+		if err != nil || len(files) != 3 {
+			t.Fatal(files, err)
 		}
 	}
 }
@@ -94,10 +106,10 @@ func TestLimitsCancelAndRollback(t *testing.T) {
 	if _, _, err := s.create(Request{Prompt: "child"}, root); err == nil {
 		t.Fatal("depth limit bypass")
 	}
-	go s.execute(root, false)
+	go s.execute(root)
 	<-started
 	queued, _, _ := s.create(Request{Prompt: "queued"}, nil)
-	go s.execute(queued, false)
+	go s.execute(queued)
 	queued.cancel()
 	wait(t, queued)
 	root.cancel()
@@ -124,20 +136,20 @@ func TestLimitsCancelAndRollback(t *testing.T) {
 		t.Fatal(code)
 	}
 	a.cancel()
-	s.execute(a, false)
+	s.execute(a)
 }
 func TestTimeout(t *testing.T) {
 	s := setup(t, func(w http.ResponseWriter, r *http.Request) { io.Copy(io.Discard, r.Body); <-r.Context().Done() }, 1)
 	s.opts.Timeout = 20 * time.Millisecond
 	task, _, _ := s.create(Request{Prompt: "timeout"}, nil)
-	go s.execute(task, false)
+	go s.execute(task)
 	wait(t, task)
 	if task.Status != "failed" || !strings.Contains(task.Error, context.DeadlineExceeded.Error()) {
 		t.Fatal(task.Status, task.Error)
 	}
 }
 
-func TestDelegateDepthAndCascade(t *testing.T) {
+func TestAsyncAgentDepthAndCascade(t *testing.T) {
 	s := setup(t, func(w http.ResponseWriter, r *http.Request) {
 		var body any
 		_ = json.NewDecoder(r.Body).Decode(&body)
@@ -146,10 +158,10 @@ func TestDelegateDepthAndCascade(t *testing.T) {
 			answer(w, "done")
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"type": "function_call", "name": "delegate", "call_id": "nested", "arguments": `{"prompt":"delegate again"}`}}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"output": []any{map[string]any{"type": "function_call", "name": "agent", "call_id": "nested", "arguments": `{"prompt":"agent again"}`}}})
 	}, 1)
-	root, _, _ := s.create(Request{Prompt: "delegate"}, nil)
-	go s.execute(root, false)
+	root, _, _ := s.create(Request{Prompt: "agent"}, nil)
+	go s.execute(root)
 	wait(t, root)
 	s.mu.Lock()
 	count := len(s.tasks)
@@ -166,8 +178,8 @@ func TestDelegateDepthAndCascade(t *testing.T) {
 	if child.ctx.Err() != context.Canceled {
 		t.Fatal("cancellation did not propagate")
 	}
-	s.execute(child, true)
-	s.execute(parent, false)
+	s.execute(child)
+	s.execute(parent)
 }
 
 func TestSessionIsolation(t *testing.T) {
@@ -222,7 +234,7 @@ func TestWatchNotificationAndBoundedReplay(t *testing.T) {
 	default:
 	}
 	job.cancel()
-	s.execute(job, false)
+	s.execute(job)
 	select {
 	case <-next:
 	default:

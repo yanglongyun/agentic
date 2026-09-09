@@ -20,9 +20,10 @@ import (
 )
 
 type operationResult struct {
-	text    string
-	err     error
-	elapsed time.Duration
+	text       string
+	err        error
+	elapsed    time.Duration
+	background bool
 }
 
 func runOperation(ctx context.Context, a *agent.Agent, text string) operationResult {
@@ -83,7 +84,8 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 	if err != nil {
 		return err
 	}
-	defer api.Close()
+	agents := api.Agents()
+	a.Spawn = func(ctx context.Context, prompt string) (string, error) { return agents.Spawn(ctx, a.History, prompt) }
 	currentID := func() string {
 		if a.History == nil {
 			return ""
@@ -91,7 +93,7 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 		return filepath.Base(a.History.Dir)
 	}
 	releaseSession := func() {}
-	defer func() { releaseSession() }()
+	defer func() { api.Close(); releaseSession() }()
 	switchSession := func(id string) error {
 		if id == currentID() {
 			return nil
@@ -115,6 +117,8 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 	var line []rune
 	var results chan operationResult
 	var cancel context.CancelFunc
+	var draft []rune
+	checkAgents := true
 	showList := func() {
 		if len(entries) == 0 {
 			fmt.Println(render.Gray("暂无历史会话"))
@@ -160,7 +164,29 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 		}
 	}()
 	for {
+		changed := agents.Changes()
+		if checkAgents && cancel == nil && !selecting && a.History != nil {
+			checkAgents = false
+			records, err := agents.Pending(a.History)
+			if err != nil {
+				printErr(err)
+			} else if len(records) > 0 {
+				draft = append([]rune(nil), line...)
+				fmt.Print(render.ClearInput("› "+string(line), terminalColumns()))
+				fmt.Print(render.Cyan("agent") + " " + render.Gray(fmt.Sprintf("%d 个任务返回", len(records))) + "\n")
+				ctx, stop := context.WithCancel(context.Background())
+				cancel = stop
+				results = make(chan operationResult, 1)
+				go func(output chan<- operationResult) {
+					started := time.Now()
+					text, err := agents.Deliver(ctx, a, records)
+					output <- operationResult{text: text, err: err, elapsed: time.Since(started), background: true}
+				}(results)
+			}
+		}
 		select {
+		case <-changed:
+			checkAgents = true
 		case <-api.Done():
 			return fmt.Errorf("API 服务已停止：%v", api.Err())
 		case sig := <-signals:
@@ -190,8 +216,16 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 					fmt.Print(render.Footer(result.elapsed, a.History.Tokens(), a.Config.CompactAt))
 				}
 			}
-			line = nil
+			if result.background {
+				line = draft
+				draft = nil
+				checkAgents = result.err == nil
+			} else {
+				line = nil
+				checkAgents = true
+			}
 			prompt()
+			fmt.Print(string(line))
 		case k, ok := <-keys:
 			if !ok {
 				return nil
@@ -259,6 +293,7 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 							printErr(e)
 						} else {
 							selecting = false
+							checkAgents = true
 							fmt.Println("已切换到会话", entries[n-1].ID)
 							if e := printHistory(a.History, a.Config.ResumeMessages); e != nil {
 								printErr(e)
@@ -268,6 +303,7 @@ func repl(a *agent.Agent, root, version string, browse bool) error {
 					prompt()
 					continue
 				}
+				checkAgents = true
 				switch text {
 				case "":
 					prompt()

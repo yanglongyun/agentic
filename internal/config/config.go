@@ -25,18 +25,19 @@ type APIConfig struct {
 }
 
 type Config struct {
-	ResumeMessages int       `json:"resume_messages"`
-	API            APIConfig `json:"api"`
-	URL            string    `json:"url"`
-	Key            string    `json:"key"`
-	Model          string    `json:"model"`
-	CompactAt      int       `json:"compact_at"`
-	Keep           int       `json:"keep"`
-	Timeout        int       `json:"timeout"`
-	MaxOutput      int       `json:"max_output"`
-	System         string    `json:"system"`
-	CompactSystem  string    `json:"compact_system"`
-	CompactPrefix  string    `json:"compact_prefix"`
+	AgentResultPrefix string    `json:"agent_result_prefix"`
+	ResumeMessages    int       `json:"resume_messages"`
+	API               APIConfig `json:"api"`
+	URL               string    `json:"url"`
+	Key               string    `json:"key"`
+	Model             string    `json:"model"`
+	CompactAt         int       `json:"compact_at"`
+	Keep              int       `json:"keep"`
+	Timeout           int       `json:"timeout"`
+	MaxOutput         int       `json:"max_output"`
+	System            string    `json:"system"`
+	CompactSystem     string    `json:"compact_system"`
+	CompactPrefix     string    `json:"compact_prefix"`
 }
 
 type Paths struct {
@@ -191,6 +192,8 @@ func Set(c *Config, key, value string) error {
 		c.System = value
 	case "compact-system":
 		c.CompactSystem = value
+	case "agent-result-prefix":
+		c.AgentResultPrefix = value
 	case "compact-prefix":
 		c.CompactPrefix = value
 	case "compact-at":

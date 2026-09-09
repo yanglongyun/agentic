@@ -13,6 +13,7 @@ import (
 
 	"github.com/yanglongyun/agentic/internal/config"
 	"github.com/yanglongyun/agentic/internal/events"
+	"github.com/yanglongyun/agentic/internal/history"
 )
 
 type Options struct {
@@ -20,38 +21,44 @@ type Options struct {
 	Timeout                         time.Duration
 }
 type Request struct {
+	delivery  bool
 	Prompt    string `json:"prompt"`
 	SessionID string `json:"session_id,omitempty"`
 }
 type Task struct {
-	ID         string     `json:"id"`
-	SessionID  string     `json:"session_id"`
-	ParentID   string     `json:"parent_id,omitempty"`
-	Depth      int        `json:"depth"`
-	Status     string     `json:"status"`
-	Result     string     `json:"result,omitempty"`
-	Error      string     `json:"error,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	FinishedAt *time.Time `json:"finished_at,omitempty"`
-	events     []events.Event
-	next       int
-	changed    chan struct{}
-	cancel     context.CancelFunc
-	ctx        context.Context
-	done       chan struct{}
-	prompt     string
+	dir, parentDir string
+	store          *history.Store
+	delivery       bool
+	ID             string     `json:"id"`
+	SessionID      string     `json:"session_id"`
+	ParentID       string     `json:"parent_id,omitempty"`
+	Depth          int        `json:"depth"`
+	Status         string     `json:"status"`
+	Result         string     `json:"result,omitempty"`
+	Error          string     `json:"error,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
+	events         []events.Event
+	next           int
+	changed        chan struct{}
+	cancel         context.CancelFunc
+	ctx            context.Context
+	done           chan struct{}
+	prompt         string
 }
 type Manager struct {
-	mu      sync.Mutex
-	workers sync.WaitGroup
-	tasks   map[string]*Task
-	busy    map[string]bool
-	opts    Options
-	config  config.Config
-	dir     string
-	slots   chan struct{}
-	ctx     context.Context
-	cancel  context.CancelFunc
+	changed     chan struct{}
+	interactive map[string]bool
+	mu          sync.Mutex
+	workers     sync.WaitGroup
+	tasks       map[string]*Task
+	busy        map[string]bool
+	opts        Options
+	config      config.Config
+	dir         string
+	slots       chan struct{}
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 var sessionPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
@@ -61,7 +68,7 @@ func New(c config.Config, dir string, o Options) (*Manager, error) {
 		return nil, errors.New("服务限制参数无效")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Manager{tasks: map[string]*Task{}, busy: map[string]bool{}, opts: o, config: c, dir: filepath.Join(dir, "sessions"), slots: make(chan struct{}, o.Concurrency), ctx: ctx, cancel: cancel}, nil
+	return &Manager{changed: make(chan struct{}), interactive: map[string]bool{}, tasks: map[string]*Task{}, busy: map[string]bool{}, opts: o, config: c, dir: filepath.Join(dir, "sessions"), slots: make(chan struct{}, o.Concurrency), ctx: ctx, cancel: cancel}, nil
 }
 func (s *Manager) Close() {
 	s.mu.Lock()
@@ -81,12 +88,14 @@ func (s *Manager) ReserveSession(id string) (func(), error) {
 		return nil, errors.New("该会话正在被使用")
 	}
 	s.busy[id] = true
+	s.interactive[id] = true
 	var once sync.Once
 	return func() {
 		once.Do(func() {
 			s.mu.Lock()
-			defer s.mu.Unlock()
 			delete(s.busy, id)
+			s.mu.Unlock()
+			s.kick(filepath.Join(s.dir, id))
 		})
 	}, nil
 }
@@ -127,8 +136,12 @@ func (s *Manager) emit(t *Task, e events.Event) {
 	s.eventLocked(t, e)
 }
 func (s *Manager) create(req Request, parent *Task) (*Task, Code, error) {
-	if strings.TrimSpace(req.Prompt) == "" || len(req.Prompt) > 128*1024 {
+	if (!req.delivery && strings.TrimSpace(req.Prompt) == "") || len(req.Prompt) > 128*1024 {
 		return nil, Invalid, errors.New("prompt 不能为空且不能超过 128 KiB")
+	}
+	taskID := randomID()
+	if parent != nil {
+		req.SessionID = taskID
 	}
 	if req.SessionID == "" {
 		req.SessionID = randomID()
@@ -151,6 +164,12 @@ func (s *Manager) create(req Request, parent *Task) (*Task, Code, error) {
 	var oldest *Task
 	for id, t := range s.tasks {
 		if t.FinishedAt != nil {
+			if t.parentDir != "" {
+				record, err := history.ReadAgent(t.dir)
+				if err != nil || !record.Handled {
+					continue
+				}
+			}
 			if time.Since(*t.FinishedAt) > 24*time.Hour {
 				delete(s.tasks, id)
 			} else if oldest == nil || t.FinishedAt.Before(*oldest.FinishedAt) {
@@ -173,7 +192,23 @@ func (s *Manager) create(req Request, parent *Task) (*Task, Code, error) {
 		parentID = parent.ID
 	}
 	ctx, cancel := context.WithTimeout(base, s.opts.Timeout)
-	t := &Task{ID: randomID(), SessionID: req.SessionID, ParentID: parentID, Depth: depth, Status: "queued", CreatedAt: time.Now().UTC(), ctx: ctx, cancel: cancel, done: make(chan struct{}), prompt: req.Prompt}
+	t := &Task{ID: taskID, SessionID: req.SessionID, ParentID: parentID, Depth: depth, Status: "queued", CreatedAt: time.Now().UTC(), ctx: ctx, cancel: cancel, done: make(chan struct{}), prompt: req.Prompt}
+	t.dir = filepath.Join(s.dir, req.SessionID)
+	t.delivery = req.delivery
+	if parent != nil {
+		t.parentDir = parent.dir
+		t.dir = filepath.Join(parent.dir, "agents", t.ID)
+		h, err := history.OpenAgent(t.dir)
+		if err != nil {
+			cancel()
+			return nil, Invalid, err
+		}
+		t.store = h
+		if err := h.SetAgent(history.AgentRecord{Prompt: t.prompt, ID: t.ID, ParentID: parentID, Status: "queued", CreatedAt: t.CreatedAt}); err != nil {
+			cancel()
+			return nil, Invalid, err
+		}
+	}
 	s.workers.Add(1)
 	s.tasks[t.ID] = t
 	s.busy[t.SessionID] = true
@@ -203,7 +238,7 @@ func (s *Manager) Submit(req Request) (*Task, error) {
 	if err != nil {
 		return nil, &Error{code, err}
 	}
-	go s.execute(t, false)
+	go s.execute(t)
 	return t, nil
 }
 func (s *Manager) Get(id string) *Task { s.mu.Lock(); defer s.mu.Unlock(); return s.tasks[id] }

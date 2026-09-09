@@ -20,13 +20,16 @@ type Range struct {
 	To   int64 `json:"to"`
 }
 type State struct {
-	Format     int       `json:"format"`
-	Tokens     int       `json:"tokens"`
-	ID         string    `json:"id"`
-	CreatedAt  time.Time `json:"created_at"`
-	Start      int64     `json:"start"`
-	Compaction int64     `json:"compaction"`
-	Excluded   []Range   `json:"excluded,omitempty"`
+	Format     int                 `json:"format"`
+	Tokens     int                 `json:"tokens"`
+	ID         string              `json:"id"`
+	CreatedAt  time.Time           `json:"created_at"`
+	Start      int64               `json:"start"`
+	Compaction int64               `json:"compaction"`
+	Excluded   []Range             `json:"excluded,omitempty"`
+	Agent      *AgentRecord        `json:"agent,omitempty"`
+	Delivered  map[string]bool     `json:"delivered_agents,omitempty"`
+	Delivery   *DeliveryCheckpoint `json:"delivery,omitempty"`
 }
 type Compaction struct {
 	CreatedAt time.Time      `json:"created_at"`
@@ -39,15 +42,20 @@ type Checkpoint struct {
 	count int64
 }
 
-func Open(dir string) (*Store, error) {
+func Open(dir string) (*Store, error)      { return open(dir, "session.json") }
+func OpenAgent(dir string) (*Store, error) { return open(dir, "state.json") }
+func open(dir, stateName string) (*Store, error) {
 	for _, name := range []string{"history.jsonl", "archive.jsonl", "state.json"} {
+		if stateName == "state.json" && name == "state.json" {
+			continue
+		}
 		if _, err := os.Stat(filepath.Join(dir, name)); err == nil {
 			return nil, fmt.Errorf("检测到旧格式文件 %s，不支持迁移；请使用新的 AGENT_HOME 或会话 ID", filepath.Join(dir, name))
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return nil, err
 		}
 	}
-	s := &Store{Dir: dir, Messages: filepath.Join(dir, "messages.jsonl"), Compactions: filepath.Join(dir, "compactions.jsonl"), State: filepath.Join(dir, "session.json")}
+	s := &Store{Dir: dir, Messages: filepath.Join(dir, "messages.jsonl"), Compactions: filepath.Join(dir, "compactions.jsonl"), State: filepath.Join(dir, stateName)}
 	state, err := s.load()
 	if errors.Is(err, os.ErrNotExist) {
 		for _, p := range []string{s.Messages, s.Compactions} {
@@ -71,6 +79,11 @@ func Open(dir string) (*Store, error) {
 		}
 		if e = f.Close(); e != nil {
 			return nil, e
+		}
+	}
+	if state.Delivery != nil {
+		if err := s.AbortDelivery(); err != nil {
+			return nil, err
 		}
 	}
 	return s, nil

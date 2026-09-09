@@ -86,3 +86,5 @@ func (r *Runtime) Close() {
 	})
 }
 func (s *Server) ReserveSession(id string) (func(), error) { return s.tasks.ReserveSession(id) }
+
+func (s *Server) Agents() *task.Manager { return s.tasks }

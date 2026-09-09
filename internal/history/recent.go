@@ -88,7 +88,7 @@ func (s *Store) Recent(limit int) ([]Message, error) {
 		if err := json.Unmarshal(line, &item); err != nil {
 			return nil, fmt.Errorf("读取历史消息：%w", err)
 		}
-		if item.Type != "message" || item.Kind == "compaction" || (item.Role != "user" && item.Role != "assistant") {
+		if item.Type != "message" || (item.Kind == "compaction" || item.Kind == "agent_result") || (item.Role != "user" && item.Role != "assistant") {
 			continue
 		}
 		var text string
