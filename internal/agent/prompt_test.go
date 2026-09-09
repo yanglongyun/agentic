@@ -43,7 +43,17 @@ func TestConfiguredPromptsReachModel(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = a.Compact(context.Background()); err != nil {
+	a.Config.CompactAt = 1
+	if err = a.compact(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(instructions) != 1 {
+		t.Fatal("compressed below threshold")
+	}
+	if err = h.SetTokens(1); err != nil {
+		t.Fatal(err)
+	}
+	if err = a.compact(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	if len(instructions) != 2 || !strings.HasPrefix(instructions[0], "main ") || strings.Contains(instructions[0], "{{") || instructions[1] != "compress custom" {

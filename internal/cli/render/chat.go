@@ -9,7 +9,7 @@ import (
 )
 
 // Banner 渲染进入 REPL 时的欢迎块。
-func Banner(version, model string) string {
+func Banner(version, model, apiURL string) string {
 	host, _ := os.Hostname()
 	cwd, _ := os.Getwd()
 	if home, e := os.UserHomeDir(); e == nil {
@@ -21,28 +21,37 @@ func Banner(version, model string) string {
 	var b strings.Builder
 	line := Dim("  \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500")
 	b.WriteString(line + "\n")
-	b.WriteString("  " + Bold(Cyan("agent")) + "  " + Bold(version) + "  " + Dim("\u00b7") + "  " + Green(model) + "\n")
-	b.WriteString("  " + Dim("目录 ") + cwd + "  " + Dim("\u00b7 主机 ") + host + "\n")
-	b.WriteString("  " + Dim("/help 命令 \u00b7 /status 状态 \u00b7 /exit 退出") + "\n")
+	b.WriteString("  " + Bold(Cyan("agent")) + "\n")
+	b.WriteString("  " + Dim("版本 ") + Bold(version) + "\n")
+	b.WriteString("  " + Dim("模型 ") + Green(model) + "\n")
+	b.WriteString("  " + Dim("目录 ") + cwd + "\n")
+	b.WriteString("  " + Dim("主机 ") + host + "\n")
+	b.WriteString("  " + Dim("API  ") + Cyan(apiURL) + "\n")
+	b.WriteString("  " + Dim("/help   命令") + "\n")
+	b.WriteString("  " + Dim("/status 状态") + "\n")
+	b.WriteString("  " + Dim("/resume 历史会话") + "\n")
+	b.WriteString("  " + Dim("/exit   退出") + "\n")
 	b.WriteString(line + "\n\n")
 	return b.String()
 }
 
-// Help 渲染分组后的命令说明。
+// Help 每行显示一条命令或快捷键。
 func Help() string {
-	cmd := func(name, desc string) string {
-		return "  " + Bold(Yellow(name)) + "  " + desc
+	rows := []struct{ name, desc string }{
+		{"/help", "查看命令"},
+		{"/resume", "继续历史会话"},
+		{"/status", "查看状态"},
+		{"/exit", "退出"},
+		{"/quit", "退出"},
+		{"Esc", "停止回复"},
+		{"Ctrl+C", "停止回复或退出"},
 	}
-	group := func(title string) string { return "\n  " + Bold(Magenta(title)) + "\n" }
 	var b strings.Builder
-	b.WriteString(group("会话"))
-	b.WriteString(cmd("/exit, /quit", "退出") + "\n")
-	b.WriteString(cmd("/history", "查看当前对话") + "\n")
-	b.WriteString(cmd("/compact", "压缩早期上下文") + "\n")
-	b.WriteString(group("状态与配置"))
-	b.WriteString(cmd("/status", "模型 / 目录 / token 用量") + "\n")
-	b.WriteString(cmd("/help", "本帮助") + "\n")
-	b.WriteString("\n  " + Dim("直接输入内容即可与 agent 对话；工具执行过程会以灰色显示在上方。") + "\n\n")
+	b.WriteByte('\n')
+	for _, row := range rows {
+		b.WriteString("  " + Bold(Yellow(row.name)) + strings.Repeat(" ", 12-displayWidth(row.name)) + row.desc + "\n")
+	}
+	b.WriteByte('\n')
 	return b.String()
 }
 
@@ -81,7 +90,7 @@ func StatusLine(model, url, cwd string, tokens, compactAt int) string {
 	usage := fmtK(tokens) + " tokens"
 	if compactAt > 0 {
 		pct := tokens * 100 / compactAt
-		usage += Dim(fmt.Sprintf("（到 %d%% 触发压缩，阈值 %s）", pct, fmtK(compactAt)))
+		usage += Dim(fmt.Sprintf(" / %s（%d%%）", fmtK(compactAt), pct))
 	}
 	b.WriteString(row("用量", usage))
 	b.WriteString("\n")

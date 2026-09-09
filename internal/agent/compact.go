@@ -5,14 +5,11 @@ import (
 	"strings"
 )
 
-func (a *Agent) Compact(ctx context.Context) error { return a.compactForce(ctx) }
 func (a *Agent) compact(ctx context.Context) error {
 	if a.History.Tokens() < a.Config.CompactAt {
 		return nil
 	}
-	return a.compactForce(ctx)
-}
-func (a *Agent) compactForce(ctx context.Context) error {
+
 	items, err := a.History.Items()
 	if err != nil {
 		return err
@@ -49,6 +46,9 @@ func (a *Agent) compactForce(ctx context.Context) error {
 	}
 	prompt := []map[string]any{message("user", "input_text", source.String())}
 	resp, e := a.API.Call(ctx, prompt, nil, renderPrompt(a.Config.CompactSystem))
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	summary := ""
 	if e == nil {
 		for _, v := range resp.Output {

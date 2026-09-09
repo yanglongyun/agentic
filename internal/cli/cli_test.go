@@ -44,7 +44,7 @@ func TestNewSessionsKeepPriorMessages(t *testing.T) {
 func TestRemovedCommandsDoNotCreateSession(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("AGENT_HOME", root)
-	for _, args := range [][]string{{"reset"}, {"-p", "hello"}, {"hello"}} {
+	for _, args := range [][]string{{"compact"}, {"serve"}, {"reset"}, {"-p", "hello"}, {"hello"}} {
 		if err := Run(args, "test"); err == nil {
 			t.Fatal("accepted", args)
 		}

@@ -2,7 +2,9 @@ package config
 
 import (
 	"bufio"
+	"crypto/rand"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,17 +15,28 @@ import (
 	"strings"
 )
 
+type APIConfig struct {
+	Listen      string `json:"listen"`
+	Token       string `json:"token"`
+	Concurrency int    `json:"concurrency"`
+	MaxTasks    int    `json:"max_tasks"`
+	MaxDepth    int    `json:"max_depth"`
+	TaskTimeout int    `json:"task_timeout"` // seconds
+}
+
 type Config struct {
-	URL           string `json:"url"`
-	Key           string `json:"key"`
-	Model         string `json:"model"`
-	CompactAt     int    `json:"compact_at"`
-	Keep          int    `json:"keep"`
-	Timeout       int    `json:"timeout"`
-	MaxOutput     int    `json:"max_output"`
-	System        string `json:"system"`
-	CompactSystem string `json:"compact_system"`
-	CompactPrefix string `json:"compact_prefix"`
+	ResumeMessages int       `json:"resume_messages"`
+	API            APIConfig `json:"api"`
+	URL            string    `json:"url"`
+	Key            string    `json:"key"`
+	Model          string    `json:"model"`
+	CompactAt      int       `json:"compact_at"`
+	Keep           int       `json:"keep"`
+	Timeout        int       `json:"timeout"`
+	MaxOutput      int       `json:"max_output"`
+	System         string    `json:"system"`
+	CompactSystem  string    `json:"compact_system"`
+	CompactPrefix  string    `json:"compact_prefix"`
 }
 
 type Paths struct {
@@ -89,8 +102,18 @@ func Load(p Paths) (Config, error) {
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return c, err
-	} else if err = Save(p, c); err != nil {
-		return c, err
+	}
+	if errors.Is(err, os.ErrNotExist) || c.API.Token == "" {
+		if c.API.Token == "" {
+			var token [32]byte
+			if _, err := rand.Read(token[:]); err != nil {
+				return c, err
+			}
+			c.API.Token = hex.EncodeToString(token[:])
+		}
+		if err := Save(p, c); err != nil {
+			return c, err
+		}
 	}
 	applyEnv(&c)
 	return c, nil
@@ -123,6 +146,41 @@ func Set(c *Config, key, value string) error {
 		return n, nil
 	}
 	switch key {
+	case "resume-messages":
+		n, err := intValue()
+		if err != nil {
+			return err
+		}
+		if n > 200 {
+			return errors.New("resume-messages 不能超过 200")
+		}
+		c.ResumeMessages = n
+	case "api-listen":
+		c.API.Listen = value
+	case "api-token":
+		if len(value) < 16 {
+			return errors.New("API 令牌至少需要 16 个字符")
+		}
+		c.API.Token = value
+	case "api-concurrency", "api-max-tasks", "api-task-timeout":
+		n, err := intValue()
+		if err != nil {
+			return err
+		}
+		switch key {
+		case "api-concurrency":
+			c.API.Concurrency = n
+		case "api-max-tasks":
+			c.API.MaxTasks = n
+		case "api-task-timeout":
+			c.API.TaskTimeout = n
+		}
+	case "api-max-depth":
+		n, err := strconv.Atoi(value)
+		if err != nil || n < 0 {
+			return errors.New("api-max-depth 必须是非负整数")
+		}
+		c.API.MaxDepth = n
 	case "url":
 		c.URL = value
 	case "key":
@@ -206,6 +264,12 @@ func mask(k string) string {
 	return k[:6] + "..." + k[len(k)-4:]
 }
 func applyEnv(c *Config) {
+	if v := os.Getenv("AGENT_SERVER_TOKEN"); v != "" {
+		c.API.Token = v
+	}
+	if v := os.Getenv("AGENT_LISTEN"); v != "" {
+		c.API.Listen = v
+	}
 	if v := os.Getenv("AGENT_URL"); v != "" {
 		c.URL = v
 	}

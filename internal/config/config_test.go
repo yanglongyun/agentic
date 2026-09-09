@@ -56,3 +56,31 @@ func TestPromptConfigRoundTrip(t *testing.T) {
 		t.Fatal(c, err)
 	}
 }
+
+func TestAPITokenPersistsAndEnvironmentDoesNotOverwriteIt(t *testing.T) {
+	root := t.TempDir()
+	p := Paths{ConfigDir: root, DataDir: root, Config: filepath.Join(root, "config.json")}
+	t.Setenv("AGENT_SERVER_TOKEN", "")
+	c, err := Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	token := c.API.Token
+	if len(token) != 64 || c.API.Listen != "127.0.0.1:9528" {
+		t.Fatal("invalid API defaults")
+	}
+	c, err = Load(p)
+	if err != nil || c.API.Token != token {
+		t.Fatal("token changed on reload", err)
+	}
+	t.Setenv("AGENT_SERVER_TOKEN", "environment-token-override")
+	c, err = Load(p)
+	if err != nil || c.API.Token != "environment-token-override" {
+		t.Fatal("override failed", err)
+	}
+	t.Setenv("AGENT_SERVER_TOKEN", "")
+	c, err = Load(p)
+	if err != nil || c.API.Token != token {
+		t.Fatal("environment overwrote saved token", err)
+	}
+}

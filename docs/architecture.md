@@ -9,9 +9,10 @@ agentic/
 ├── internal/
 │   ├── cli/                命令行入口与交互
 │   │   ├── cli.go          参数分发、新会话创建、帮助
-│   │   ├── repl.go         交互对话循环
+│   │   ├── repl.go         交互对话循环、Esc 取消与会话选择
 │   │   ├── config.go       config 子命令
-│   │   ├── history.go      历史显示
+│   │   ├── history.go      恢复会话时显示近期对话
+│   │   ├── keyboard*.go    Linux/macOS/Windows 终端按键与恢复
 │   │   └── render/         终端颜色、Markdown、工具事件显示
 │   ├── ai/client.go        模型 HTTP 请求、响应解析、重试
 │   ├── agent/
@@ -48,7 +49,8 @@ agentic/
 
 ## 依赖与事件
 
-CLI 直接驱动 agent；HTTP 通过 task 管理器驱动 agent：
+交互入口同时启动 HTTP 监听，退出时取消 API 任务、等待历史恢复并关闭服务。
+CLI 直接驱动 agent；HTTP 通过 task 管理器驱动 agent；两者共用会话互斥：
 
 ```text
 cmd/agent → cli → agent → ai
@@ -76,7 +78,7 @@ agent 不导入终端渲染或 HTTP 服务；task 不处理鉴权、HTTP 请求�
 | 改上下文压缩 | agent/compact.go |
 | 改并发、取消、子任务 | task/ |
 | 加网站调用接口 | server/routes.go |
-| 改端口（默认 9528） | server/server.go |
+| 改端口（默认 9528） | config/defaults.json 的 api.listen |
 | 改终端展示 | cli/render/ |
 | 改会话保存方式 | history/ |
 | 改数据目录与初始化 | storage/ 和 config/ |

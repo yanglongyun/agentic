@@ -33,15 +33,18 @@ agent
 
 ## HTTP 服务
 
-支持 `agent serve`，供网站后端调用：异步任务、独立会话、SSE 实时事件、取消和 `delegate` 子任务。
-先运行 `agent config` 配置模型，再设置独立的服务访问令牌（至少 16 字符）：
+运行 `agent` 或 `agent resume` 时，终端聊天和 HTTP API 同时启动；退出聊天时关闭 API 并取消未完成任务。
+默认监听 `127.0.0.1:9528`，启动信息显示实际监听地址。端口占用会报错，不会自动换端口。
+API 支持异步任务、独立会话、SSE 实时事件、取消和 `delegate` 子任务。
+
+首次自动生成独立访问令牌，保存在 `config.json` 的 `api.token`；网站后端读取相同令牌。
+也可用 `AGENT_SERVER_TOKEN` 覆盖，令牌至少 16 字符，不要放在浏览器前端。
 
 ```sh
-export AGENT_SERVER_TOKEN="$(openssl rand -hex 32)"
-agent serve
+agent config
+agent
 ```
 
-默认监听 `127.0.0.1:9528`。网站后端使用相同令牌调用；不要把令牌放在浏览器前端。
 例如，在已设置相同令牌的另一个终端创建任务：
 
 ```sh
@@ -53,7 +56,8 @@ curl -sS http://127.0.0.1:9528/v1/tasks \
 
 返回任务 ID；查询 `GET /v1/tasks/<id>`，订阅 `GET /v1/tasks/<id>/events`，
 取消使用 `POST /v1/tasks/<id>/cancel`。省略 `session_id` 创建新会话，传入已有 ID 继续对话。
-服务默认并发 4、子任务深度 2、超时 10 分钟，可通过 `agent serve -h` 查看参数。
+服务默认并发 4、子任务深度 2、超时 10 分钟，在 `config.json` 的 `api` 中调整。
+例如：`agent config set api-listen 127.0.0.1:9528`。
 完整启动示例、接口和限制见 [HTTP API 文档](docs/http-api.md)。
 
 ## 用法
@@ -63,10 +67,29 @@ agent                         # 开启新的交互会话
 
 agent config show
 agent config set model gpt-4o-mini
-agent history
-agent compact
+agent resume
 agent version
 ```
+
+## 终端交互
+
+用户消息显示在灰色背景块中，助手回复直接显示正文，不显示“你 / 助理”角色标签。
+关闭颜色时退化为纯文本显示。
+
+- 任务运行时按 **Esc** 或 **Ctrl+C** 停止当前轮，等待模型请求或工具退出后回到输入框，会话保留。
+- 空闲时 Ctrl+C、Ctrl+D 或 `/exit` 退出程序；Esc 清空输入，或退出会话选择器。
+- `/resume` 显示历史会话列表（ID、更新时间、首条消息预览），输入编号后显示最近的历史对话并继续；`n` / `p` 翻页，Esc 或空输入返回。
+- `/status` 查看模型、目录、Token 和当前会话 ID。
+恢复会话默认显示最近 20 条用户和助手消息，可通过 `agent config set resume-messages 40` 调整（1–200 条）。
+只读取 `messages.jsonl` 最后 1 MiB，单条最多显示 4,000 字符，总计最多 20,000 字符；较早或超长内容会省略。
+显示历史不改变模型上下文，模型仍使用压缩摘要和后续消息。
+
+上下文自动压缩，不提供手动压缩命令。
+
+取消的消息与工具记录仍保留在 `messages.jsonl`，但恢复当前轮开始前的模型上下文，避免下一轮带入未完成的工具调用。
+已经写入的文件或其他外部操作不会回滚。Linux/macOS 会取消 shell 进程组；Windows 仍仅保证终止直接子进程。
+会话列表只读取元数据及最多 8 KiB 的首条消息预览，不扫描完整历史。不支持的旧格式会话不列出，也不迁移。
+同一会话仍不应由多个 CLI 或 HTTP 任务同时操作。
 
 ## 工具
 
@@ -105,14 +128,16 @@ agentic/
 
 可用 `AGENT_HOME` 指定统一根目录。兼容旧目录变量，根目录优先级为
 `AGENT_HOME` > `AGENT_DATA_DIR` > `AGENT_CONFIG_DIR` > 平台默认目录。
-每次启动 `agent` 创建新的 `sessions/cli-<随机ID>/`，不自动续聊旧会话。
+启动 `agent` 不创建会话；发送第一条消息时才创建 `sessions/cli-<随机ID>/`。
+查看帮助、状态、历史列表或直接退出都不产生新会话，也不改变当前会话记录。
+通过 `/resume` 选择历史会话后直接继续该会话；空会话不在列表中显示。
 HTTP 会话也位于 `sessions/`；省略 session_id 即创建新会话，提供已有 ID 则继续该会话。
 同一会话不应由 CLI 和 HTTP 或多个进程同时操作。
 
 不提供旧数据迁移，不复制、重命名或删除旧文件。发现选定目录中的旧格式会话会报错。
 需要保留旧数据时，请使用新的 `AGENT_HOME` 或新会话 ID，并重新配置模型。
-不提供单次参数提问、管道提问或 reset。退出后重新运行 `agent` 即开启新会话，旧记录保留。
-`agent history` 和 `agent compact` 操作最近创建的 CLI 会话。
+不提供单次参数提问、管道提问或 reset。退出后重新运行 `agent`，发送第一条消息时开启新会话，旧记录保留。
+`agent resume` 打开历史会话选择器。
 失败或取消的任务消息同样保留，但通过会话元数据排除出后续模型上下文。
 顶层状态不保存任务执行进度；HTTP 任务状态和事件仍在内存，重启不恢复。
 
@@ -150,7 +175,7 @@ agent config show
 支持变量 `{{os}}`、`{{arch}}`、`{{host}}`、`{{user}}`、`{{workdir}}`、`{{time}}`。
 空字符串表示不添加相应提示词，不会触发代码中的备用文本。
 `AGENT_SYSTEM` 非空时仍优先于配置中的 `system`。
-CLI 在启动时读取配置；修改后下次启动生效，运行中的 `agent serve` 需要重启。
+CLI 在启动时读取配置；修改后下次启动生效，运行中的聊天和 API 需要一起重启。
 仓库默认模板位于 `internal/config/defaults.json`，运行时以用户配置为准。
 
 ## 代码结构

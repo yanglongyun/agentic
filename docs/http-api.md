@@ -1,18 +1,36 @@
 # HTTP 任务 API
 
-先配置模型：`agent config`。然后在希望 agent 工作的目录启动：
+先配置模型：`agent config`。然后在希望 agent 工作的目录运行 `agent`。
+聊天与 API 同时启动，`agent resume` 也会启动 API；退出聊天时取消 API 任务并关闭监听。
+`config`、`version` 等一次性命令不启动监听。
+默认地址为 `http://127.0.0.1:9528`，启动信息显示实际地址；端口占用时启动失败。
 
-```sh
-export AGENT_SERVER_TOKEN="$(openssl rand -hex 32)"
-agent serve --listen 127.0.0.1:9528 --concurrency 4 --max-depth 2 --task-timeout 10m
+配置保存在 `config.json` 的 `api` 中（`task_timeout` 单位为秒）：
+
+```json
+{
+  "api": {
+    "listen": "127.0.0.1:9528",
+    "token": "首次自动生成的随机令牌",
+    "concurrency": 4,
+    "max_tasks": 256,
+    "max_depth": 2,
+    "task_timeout": 600
+  }
+}
 ```
 
-保管生成的令牌，并让网站后端读取同一个值。所有接口，包括健康检查，都要求
-`Authorization: Bearer <token>`。令牌至少 16 字符，与模型 API Key 独立。
-网站浏览器应通过自己的网站后端访问服务，不把此令牌放进前端代码。
+可使用 `agent config set api-listen 127.0.0.1:9528` 等命令修改，配置项还包括
+`api-token`、`api-concurrency`、`api-max-tasks`、`api-max-depth`、`api-task-timeout`。
+环境变量 `AGENT_LISTEN`、`AGENT_SERVER_TOKEN` 分别覆盖监听地址与访问令牌。
+`agent config show` 中令牌脱敏；完整令牌从配置文件读取，下面示例假定网站后端已把它设为 `AGENT_SERVER_TOKEN`。
+
+所有接口，包括健康检查，都要求 `Authorization: Bearer <token>`。
+令牌至少 16 字符，与模型 API Key 独立；网站浏览器应通过自己的网站后端访问服务。
 该 API 是单一可信使用者的机器控制接口，不提供多租户隔离或文件系统沙箱。
-所有任务以服务进程的用户权限运行，使用服务启动目录；不同会话共享机器文件。
-不要同时启动多个服务进程使用同一个数据根目录，也不要让 CLI 与 HTTP 同时操作同一个会话。
+所有任务以进程的用户权限运行，使用启动目录；不同会话共享机器文件。
+当前 CLI 会话由任务管理器保留，HTTP 尝试写入时返回 409；CLI 也不能切换到正在执行 API 任务的会话。
+不要启动多个进程使用同一个数据根目录。
 
 ## 创建和查询任务
 
@@ -65,12 +83,12 @@ Windows 当前仅保证终止直接子进程。已经写入的文件或其他外
 
 ## agent 自调用
 
-服务模式提供 `delegate` 工具，模型可以提交完整 prompt 创建独立子任务并等待结果。
+通过 HTTP 创建的任务提供 `delegate` 工具，模型可以提交完整 prompt 创建独立子任务并等待结果。
 例如提交：“把 README 的检查交给一个子任务，拿到结果后给我总结。”
 子任务使用新会话，不继承历史，返回记录包含 `parent_id`。
-父任务暂停期间，子任务复用该执行名额；`--concurrency 1` 也能工作。
+父任务暂停期间，子任务复用该执行名额；`api.concurrency: 1` 也能工作。
 子任务完成后父任务继续。父任务取消或超时会传递到正在执行的子任务。
-`--max-depth 2` 允许根任务→子任务→孙任务，设 0 禁止子任务。
+`api.max_depth: 2` 允许根任务→子任务→孙任务，设 0 禁止子任务。
 
 请使用 delegate 委派，不要让 shell 用管理员令牌创建根任务并同步等待：
 这种方式无法追踪父子关系，在执行名额用尽时可能一直等待到超时。
@@ -78,14 +96,14 @@ Windows 当前仅保证终止直接子进程。已经写入的文件或其他外
 
 ## 限制和存储
 
-- `--concurrency` 默认 4，限制实际并行执行；等待 delegate 的父任务不额外占名额。
-- `--task-timeout` 默认 10m，包含排队与所有子任务时间。
-- `--max-tasks` 默认 256，限制内存任务记录总数；容量满时先淘汰已完成记录，没有可淘汰记录则返回 429。
+- `api.concurrency` 默认 4，限制实际并行执行；等待 delegate 的父任务不额外占名额。
+- `api.task_timeout` 默认 600 秒，包含排队与所有子任务时间。
+- `api.max_tasks` 默认 256，限制内存任务记录总数；容量满时先淘汰已完成记录，没有可淘汰记录则返回 429。
 - 创建新任务时清理超过 24 小时的已完成记录。任务记录和事件不持久化，重启后查询返回 404，未完成任务不自动恢复。
-- CLI 与 HTTP 统一使用数据根目录下的 `sessions/<session_id>/`，每次启动 CLI 都创建新的 `cli-<随机ID>` 会话。每个会话包含 `session.json`、`messages.jsonl`、`compactions.jsonl`；磁盘历史需自行管理保留周期。根目录还包含 `config.json` 和记录当前 CLI 会话的 `state.json`，可通过 `AGENT_HOME` 指定。
+- CLI 与 HTTP 统一使用数据根目录下的 `sessions/<session_id>/`，CLI 发送第一条消息时才创建新的 `cli-<随机ID>` 会话。每个会话包含 `session.json`、`messages.jsonl`、`compactions.jsonl`；磁盘历史需自行管理保留周期。根目录还包含 `config.json` 和记录当前 CLI 会话的 `state.json`，可通过 `AGENT_HOME` 指定。
 - 健康检查为 `GET /healthz`；接口错误采用 `{"error":"说明"}`。
 
-源码更新后需要编译或发布新的 Go 二进制才能使用 `serve`。
+源码更新后需要编译或发布新的 Go 二进制才能使用合并后的启动方式。
 本地可执行 `go build -o agent ./cmd/agent`；推送 `v*` 标签会由 release 工作流构建发布包。
 
 会话仅支持新格式，不执行旧数据迁移。旧文件保持原样，请使用新数据目录或新会话 ID。

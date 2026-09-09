@@ -101,3 +101,79 @@ func TestBusyAndCancellationHTTP(t *testing.T) {
 		t.Fatal(w.Body.String())
 	}
 }
+
+func TestRuntimeLifecycleAndSessionReservation(t *testing.T) {
+	started := make(chan struct{})
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body any
+		json.NewDecoder(r.Body).Decode(&body)
+		close(started)
+		<-r.Context().Done()
+	}))
+	defer upstream.Close()
+	c := config.Default()
+	c.Key, c.URL, c.API.Token, c.API.Listen = "fake", upstream.URL, testToken, "127.0.0.1:0"
+	runtime, err := Start(c, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.Close()
+	client := &http.Client{Timeout: 3 * time.Second}
+	getHealth := func(token string) int {
+		t.Helper()
+		req, _ := http.NewRequest("GET", runtime.URL+"/healthz", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		return res.StatusCode
+	}
+	if getHealth("wrong") != 401 || getHealth(testToken) != 200 {
+		t.Fatal("health authentication failed")
+	}
+	c.API.Listen = strings.TrimPrefix(runtime.URL, "http://")
+	if other, err := Start(c, t.TempDir()); err == nil {
+		other.Close()
+		t.Fatal("accepted occupied port")
+	}
+	release, err := runtime.ReserveSession("cli-session")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := request(runtime.Server, "POST", "/v1/tasks", `{"prompt":"x","session_id":"cli-session"}`, testToken); w.Code != 409 {
+		t.Fatal(w.Code)
+	}
+	release()
+	job, err := runtime.tasks.Submit(task.Request{Prompt: "wait", SessionID: "cli-session"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	release() // Must not release the API task that now owns this session.
+	if _, err := runtime.ReserveSession("cli-session"); err == nil {
+		t.Fatal("reserved active API session")
+	}
+	select {
+	case <-started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("task did not start")
+	}
+	runtime.Close()
+	select {
+	case <-job.Done():
+	default:
+		t.Fatal("shutdown returned before task finished")
+	}
+	if runtime.tasks.Snapshot(job).Status != "cancelled" {
+		t.Fatal("task was not cancelled")
+	}
+	if runtime.Err() != nil {
+		t.Fatal(runtime.Err())
+	}
+	req, _ := http.NewRequest("GET", runtime.URL+"/healthz", nil)
+	if res, err := client.Do(req); err == nil {
+		res.Body.Close()
+		t.Fatal("listener still open")
+	}
+}

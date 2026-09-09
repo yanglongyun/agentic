@@ -57,6 +57,9 @@ func (a *Agent) Turn(ctx context.Context, text string) (string, error) {
 		}
 		hasCall := false
 		for _, item := range resp.Output {
+			if err := ctx.Err(); err != nil {
+				return final.String(), err
+			}
 			if err := a.History.Append(item); err != nil {
 				return "", err
 			}

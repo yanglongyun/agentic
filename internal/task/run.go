@@ -15,6 +15,7 @@ import (
 )
 
 func (s *Manager) execute(t *Task, inline bool) {
+	defer s.workers.Done()
 	var result string
 	var runErr error
 	defer func() {

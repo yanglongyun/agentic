@@ -42,15 +42,16 @@ type Task struct {
 	prompt     string
 }
 type Manager struct {
-	mu     sync.Mutex
-	tasks  map[string]*Task
-	busy   map[string]bool
-	opts   Options
-	config config.Config
-	dir    string
-	slots  chan struct{}
-	ctx    context.Context
-	cancel context.CancelFunc
+	mu      sync.Mutex
+	workers sync.WaitGroup
+	tasks   map[string]*Task
+	busy    map[string]bool
+	opts    Options
+	config  config.Config
+	dir     string
+	slots   chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 var sessionPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
@@ -62,7 +63,33 @@ func New(c config.Config, dir string, o Options) (*Manager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Manager{tasks: map[string]*Task{}, busy: map[string]bool{}, opts: o, config: c, dir: filepath.Join(dir, "sessions"), slots: make(chan struct{}, o.Concurrency), ctx: ctx, cancel: cancel}, nil
 }
-func (s *Manager) Close() { s.cancel() }
+func (s *Manager) Close() {
+	s.mu.Lock()
+	s.cancel()
+	s.mu.Unlock()
+	s.workers.Wait()
+}
+
+// ReserveSession excludes a session from HTTP tasks while the CLI owns it.
+func (s *Manager) ReserveSession(id string) (func(), error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ctx.Err() != nil {
+		return nil, errors.New("服务正在关闭")
+	}
+	if s.busy[id] {
+		return nil, errors.New("该会话正在被使用")
+	}
+	s.busy[id] = true
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			delete(s.busy, id)
+		})
+	}, nil
+}
 func randomID() string {
 	var b [16]byte
 	if _, err := rand.Read(b[:]); err != nil {
@@ -147,6 +174,7 @@ func (s *Manager) create(req Request, parent *Task) (*Task, Code, error) {
 	}
 	ctx, cancel := context.WithTimeout(base, s.opts.Timeout)
 	t := &Task{ID: randomID(), SessionID: req.SessionID, ParentID: parentID, Depth: depth, Status: "queued", CreatedAt: time.Now().UTC(), ctx: ctx, cancel: cancel, done: make(chan struct{}), prompt: req.Prompt}
+	s.workers.Add(1)
 	s.tasks[t.ID] = t
 	s.busy[t.SessionID] = true
 	s.eventLocked(t, events.Event{Type: events.Status, Text: "queued"})
