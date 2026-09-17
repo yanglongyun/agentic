@@ -1,17 +1,3 @@
-.browser-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 30px;
-  padding: 0 9px;
-  border-radius: 8px;
-  color: var(--text-3);
-  font-size: 12px;
-}
-.browser-toggle:hover {
-  color: var(--text-1);
-  background: var(--hover);
-}
 .browser-toggle.on {
   color: var(--accent);
   background: var(--accent-soft);

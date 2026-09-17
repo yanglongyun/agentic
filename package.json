@@ -23,8 +23,10 @@
     "format:check": "prettier --check --ignore-unknown .",
     "ui:test": "npm --prefix ui test",
     "app": "npm run ui:build && node desktop/start.js",
+    "app:prepare": "node desktop/prepare.js",
     "app:pack": "npm run ui:build && node desktop/prepare.js && electron-builder --config electron-builder.json --dir",
     "app:dist": "npm run ui:build && node desktop/prepare.js && electron-builder --config electron-builder.json",
+    "app:release": "node desktop/release.js",
     "app:test": "node --test desktop/tests/*.test.js"
   },
   "devDependencies": {

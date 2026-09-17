@@ -5,7 +5,13 @@
   "directories": {
     "output": "release"
   },
-  "files": ["desktop/index.js", "desktop/browser/**/*.js", "desktop/preload.cjs", "package.json"],
+  "files": [
+    "desktop/index.js",
+    "desktop/browser/**/*.js",
+    "desktop/computer/index.js",
+    "desktop/preload.cjs",
+    "package.json"
+  ],
   "extraResources": [
     {
       "from": "server",
@@ -31,7 +37,7 @@
     {
       "from": "desktop/runtime",
       "to": "runtime",
-      "filter": ["node", "node.exe", "LICENSE"]
+      "filter": ["node", "node.exe", "agentic-computer", "LICENSE"]
     },
     {
       "from": "desktop/browser",
@@ -47,6 +53,9 @@
   "mac": {
     "target": ["dmg"],
     "category": "public.app-category.productivity",
+    "extendInfo": {
+      "NSScreenCaptureUsageDescription": "按你的指令截取屏幕，让 Agent 识别界面并完成桌面任务。"
+    },
     "identity": null
   },
   "win": {

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Icon } from "../icons/Icon";
 import { api } from "../lib/api";
 import { copyText } from "../lib/clipboard";
 import { Sheet } from "../overlay/Sheet";
@@ -17,9 +18,30 @@ export function RemoteButton() {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const path = `/api/sessions/${id}/remote`;
+  useEffect(() => {
+    if (!id) {
+      return;
+    }
+    let active = true;
+    async function load() {
+      try {
+        const result = await api.get<Remote>(path);
+        if (active) {
+          setRemote(result);
+        }
+      } catch (error) {
+        if (active) {
+          toast(error instanceof Error ? error.message : "读取远程状态失败");
+        }
+      }
+    }
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [id, path]);
   async function show() {
     setOpen(true);
-    setRemote(null);
     try {
       setRemote(await api.get<Remote>(path));
     } catch (error) {
@@ -52,8 +74,14 @@ export function RemoteButton() {
   }
   return (
     <>
-      <button className="btn" onClick={() => void show()}>
-        远程
+      <button
+        className={`icon-btn remote-toggle${remote?.enabled ? " on" : ""}`}
+        title={remote?.enabled ? "远程访问已开启" : "远程访问"}
+        aria-label={remote?.enabled ? "远程访问已开启" : "远程访问"}
+        aria-pressed={remote?.enabled === true}
+        onClick={() => void show()}
+      >
+        <Icon name="link" size={18} />
       </button>
       {open && (
         <Sheet title="远程访问此对话" onClose={() => setOpen(false)}>

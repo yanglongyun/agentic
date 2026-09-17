@@ -2,9 +2,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildComputer } from "./computer/build.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const runtime = path.join(root, "desktop/runtime");
+await buildComputer();
 await fs.mkdir(runtime, { recursive: true });
 await fs.copyFile(path.join(root, "package.json"), path.join(runtime, "package.json"));
 const target = path.join(runtime, process.platform === "win32" ? "node.exe" : "node");

@@ -7,6 +7,18 @@ export interface Download {
   total: number;
   createdAt: number;
 }
+export interface ComputerState {
+  supported: boolean;
+  enabled: boolean;
+  accessibility: boolean;
+  screen: boolean;
+  shortcut: boolean;
+}
+export interface BrowserToolRequest {
+  id: string;
+  method: string;
+  args: { id?: string; url?: string };
+}
 export interface BrowserSettings {
   searchEngine: string;
   downloadDirectory: string;
@@ -26,6 +38,12 @@ export interface ImportedBookmark {
 declare global {
   interface Window {
     agenticDesktop?: {
+      computerState(): Promise<ComputerState>;
+      computerEnabled(value: boolean): Promise<ComputerState>;
+      computerPermission(kind: "accessibility" | "screen"): Promise<ComputerState>;
+      onComputerChanged(callback: (state: { enabled: boolean }) => void): () => void;
+      onBrowserTool(callback: (request: BrowserToolRequest) => void): () => void;
+      browserToolResult(result: { id: string; result?: unknown; error?: string }): Promise<void>;
       onOpenTab(
         callback: (detail: { url: string; background: boolean; openerId?: string }) => void,
       ): () => void;

@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { setupBrowser, isWebURL } from "./browser/index.js";
+import { setupComputer } from "./computer/index.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 app.setName("agentic");
@@ -144,6 +145,45 @@ async function start() {
   });
 
   const browser = setupBrowser(() => window, { node, core });
+  const computer = setupComputer(() => window, child);
+  child.on("message", async (message) => {
+    if (message.type === "computer:cancel") {
+      computer.cancel(message.runId);
+      return;
+    }
+    if (message.type === "computer:end") {
+      computer.finish(message.runId);
+      return;
+    }
+    if (message.type === "computer:request") {
+      const reply = { type: "computer:result", runId: message.runId, id: message.id };
+      try {
+        reply.result = await computer.execute(message);
+      } catch (error) {
+        reply.error = error.message;
+      }
+      if (child.connected) {
+        child.send(reply, () => {});
+      }
+      return;
+    }
+    if (message.type === "browser:cancel") {
+      browser.cancel(message.runId);
+      return;
+    }
+    if (message.type !== "browser:request") {
+      return;
+    }
+    const reply = { type: "browser:result", runId: message.runId, id: message.id };
+    try {
+      reply.result = await browser.execute(message);
+    } catch (error) {
+      reply.error = error.message;
+    }
+    if (child.connected) {
+      child.send(reply, () => {});
+    }
+  });
   window = new BrowserWindow({
     title: "agentic",
     width: 1440,

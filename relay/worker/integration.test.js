@@ -8,6 +8,23 @@ import { message } from "../../server/ai/index.js";
 // 先启动 npm run dev；测试只使用本地 Worker 与临时数据库。
 const worker = process.env.RELAY_TEST_URL || "http://127.0.0.1:8787";
 const key = process.env.RELAY_TEST_SECRET || "local-test-relay-secret-12345678";
+test("域名首页不加载本地登录，API 和不存在的静态文件不返回 SPA", async () => {
+  for (const route of ["/", "/index.html"]) {
+    const response = await fetch(worker + route, { headers: { "sec-fetch-mode": "navigate" } });
+    assert.equal(response.status, 200);
+    assert.equal(response.redirected, false);
+    const html = await response.text();
+    assert.match(html, /请使用客户端生成的完整访问链接/);
+    assert.doesNotMatch(html, /<script/);
+  }
+  for (const route of ["/api/auth/me", "/api/missing", "/remote/invalid/api/status"]) {
+    const response = await fetch(worker + route, { headers: { "sec-fetch-mode": "navigate" } });
+    assert.equal(response.status, 404);
+    assert.match(response.headers.get("content-type"), /application\/json/);
+    assert.equal((await response.json()).error, "接口不存在");
+  }
+  assert.equal((await fetch(`${worker}/assets/missing.js`)).status, 404);
+});
 test("真实 Worker：授权、双端同步、图片中转、会话隔离、断线恢复和撤销", async (t) => {
   let requests = 0;
   const f = await fixture(t, async () => {

@@ -4,6 +4,8 @@
 
 独立的一键安装基础版在 `AGENT` 仓库；这个仓库继续开发客户端。
 
+官网和安装包下载：<https://agentic.iimos.ai>。提供 macOS Apple Silicon 公证包和 Windows x64 安装包。
+
 ## 桌面客户端
 
 需要 Node.js 22.23.1 或更新版本。
@@ -19,6 +21,8 @@ npm run app:test            # 本地服务启动、登录、退出测试
 
 产物在 `release/`。安装包携带 Electron、Node.js、现有后端和 `ui/dist`，使用时不需要另装 Node.js。桌面启动器通过原有登录接口建立本机会话，关闭客户端时关闭它启动的服务。
 
+正式签名、公证、校验和上传步骤见 [桌面发布](dev/desktop-release.md)，官网源码与部署说明在 [site/](site/README.md)。
+
 聊天右上角的“浏览器”打开右侧面板，沿用 agentic 的样式。顶部为标签栏和地址栏，其他工具收在菜单中。
 
 - 标签：图标和加载状态、自动收窄、拖动排序、中键关闭、右键关闭其他／右侧、恢复关闭标签、拥挤时的全部标签列表。新链接紧邻来源标签。
@@ -29,7 +33,11 @@ npm run app:test            # 本地服务启动、登录、退出测试
 
 快捷键支持 `⌘/Ctrl+L/T/W/Shift+T/F/D/R/P`、`⌘/Ctrl + +/-/0`、`Ctrl+Tab` 和 `Ctrl+Shift+Tab`。网页获得焦点后同样有效。
 
-拖动左侧栏右边缘或浏览器左边缘可以调整宽度，并在本机记住。左侧栏范围为 200–440px，聊天区和浏览器各至少保留 320px。标签排序、切换、收起面板或进入设置保留已加载网页；空白标签不创建网页进程；重启仅加载活动标签，其余在选中后加载。目前仅支持手动浏览，尚未接入 AI 控制。
+拖动左侧栏右边缘或浏览器左边缘可以调整宽度，并在本机记住。左侧栏范围为 200–440px，聊天区和浏览器各至少保留 320px。标签排序、切换、收起面板或进入设置保留已加载网页；空白标签不创建网页进程；重启仅加载活动标签，其余按需加载。
+
+Agent 可以通过 `browser` 工具控制网页。工具只接收 `summary` 和 `code`，在代码中选择标签、执行网页 JS、真实点击按键、输入和截图。用户接管正在操作的网页时，脚本停止。详细接口、示例和当前边界见 [浏览器工具](dev/browser-tool.md)。
+
+macOS 还可以在「设置 → Mac 控制」中开启 `computer` 工具，读取原生界面、截图、点击、输入、滚动和拖拽。它同样只接收 `summary` 和 `code`，需要系统辅助功能和屏幕录制权限，`⌘⇧Esc` 停止并关闭控制。接口和边界见 [Mac 控制](dev/computer-tool.md)。从源码构建需要 Xcode Command Line Tools。
 
 后端继续读取原来的 agentic 配置、数据库和图片。桌面资料单独放在系统应用数据目录的 `agentic-desktop/` 中；`AGENT_HOME` 可指定后端数据目录，`AGENT_DESKTOP_HOME` 可指定桌面资料目录。网页会话与聊天登录会话使用不同的存储分区。默认工作目录是用户目录，设置中的工作目录仍然优先。
 
@@ -39,10 +47,13 @@ npm run app:test            # 本地服务启动、登录、退出测试
 desktop/                     Electron 启动壳与本机浏览器能力
   index.js                   启动服务、登录、创建窗口、退出清理
   server.js                  调用现有 server 入口，管理进程生命周期
-  browser/                   标签通信、下载、权限、HTTP 认证、Chrome 导入
+  browser/                   标签通信、CDP 控制、下载、权限、HTTP 认证、Chrome 导入
   preload.cjs                向界面暴露少量桌面方法和事件
   start.js                   开发启动入口
   prepare.js                 为安装包准备 Node.js 运行环境
+  release.js                 正式签名、公证、打包与验证
+  checksums.js               生成安装包 SHA-256 清单
+site/                        产品官网静态页面与 Cloudflare 部署示例
 ui/                          界面源码
   src/
     browser/                 浏览器面板、标签状态、网页视图
@@ -90,14 +101,18 @@ server/
     images.js                请求前将本地图片地址转换为 data URL
   agent/
     index.js                 接收消息，执行模型 / 压缩 / 工具循环，向外发事件
-    runner.js                接收工具调用，直接导入四个工具并执行、返回结果
+    runner.js                接收工具调用，直接导入工具并执行、返回结果
     compact.js               生成上下文摘要
-    tools.js                 四个工具的定义
+    tools.js                 shell / read / write / edit / browser 工具定义
     functions/
       shell.js               执行命令
       read.js                读取文本和图片
       write.js               写文件
       edit.js                精确替换
+      browser.js             执行浏览器脚本
+  browser/
+    index.js                 管理脚本线程、转发桌面 IPC、截图落盘
+    worker.js                执行 code，提供 browser / page 方法
   db.js                      SQLite 连接、DDL、初始化表
   images.js                  图片文件保存与读取
   config.js                  配置读写

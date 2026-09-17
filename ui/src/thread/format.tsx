@@ -62,6 +62,13 @@ export function toolMeta(row: Row): {
 } {
   const args = row.args || {};
   switch (row.name) {
+    case "computer":
+      return {
+        icon: <Icon name="terminal" size={15} />,
+        label: "Mac 控制",
+        pill: oneLine(args.summary),
+        pillWide: true,
+      };
     case "read":
       return {
         icon: <Icon name="doc" size={15} />,
@@ -82,6 +89,13 @@ export function toolMeta(row: Row): {
         label: "修改",
         pill: basename(args.path),
         pillWide: false,
+      };
+    case "browser":
+      return {
+        icon: <Icon name="globe" size={15} />,
+        label: "浏览器",
+        pill: oneLine(args.summary),
+        pillWide: true,
       };
     case "shell":
       return {

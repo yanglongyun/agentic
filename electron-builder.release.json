@@ -1,0 +1,29 @@
+{
+  "extends": "./electron-builder.json",
+  "directories": {
+    "output": "release/production"
+  },
+  "artifactName": "agentic-${version}-${os}-${arch}.${ext}",
+  "mac": {
+    "target": [
+      { "target": "dmg", "arch": ["arm64"] },
+      { "target": "zip", "arch": ["arm64"] }
+    ],
+    "identity": "Chuan Zhi (Chengdu) Information Technology Co., Ltd. (92696T726U)",
+    "hardenedRuntime": true,
+    "gatekeeperAssess": false,
+    "entitlements": "desktop/entitlements.mac.plist",
+    "entitlementsInherit": "desktop/entitlements.mac.plist",
+    "binaries": ["Contents/Resources/runtime/node", "Contents/Resources/runtime/agentic-computer"],
+    "notarize": true
+  },
+  "win": {
+    "target": [{ "target": "nsis", "arch": ["x64"] }]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true
+  }
+}

@@ -4,6 +4,9 @@ import { hash, json } from "./room.js";
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      return env.ASSETS.fetch(new Request(new URL("/remote-access.html", url), request));
+    }
     const origin = request.headers.get("origin");
     if (url.pathname.startsWith("/remote/") && origin && origin !== url.origin) {
       return json({ error: "跨站请求被拒绝" }, 403);
@@ -32,7 +35,7 @@ export default {
         return room.fetch(request);
       }
       // 远程页面复用同一个 UI 构建产物；授权信息不写入静态页面。
-      return env.ASSETS.fetch(new Request(new URL("/", url), request));
+      return env.ASSETS.fetch(new Request(new URL("/index.html", url), request));
     }
     if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/remote/")) {
       return json({ error: "接口不存在" }, 404);

@@ -28,12 +28,12 @@
 - 每次请求模型前，根据上次模型返回的 `usage.total_tokens` 判断压缩，禁止估算或累加历史 usage。用户输入时从数据库读取，工具循环使用上次响应用量。
 - `messages.usage` 保存原始 usage JSON，只附在每次模型响应最后一项；摘要必须先入库，再继续请求模型。
 - 工具图片直接放在 function_call_output.output 数组中，不另造 user 消息。图片存文件，数据库和事件只存图片地址；AI 请求入口读文件转 Base64，仅用于本次请求，不修改原消息。
-- `runner.js` 直接导入四个工具实现，`functions` 目录不设置 `index.js`。
+- `runner.js` 直接导入工具实现，`functions` 目录不设置 `index.js`。浏览器工具只接收 summary、code；页面选择与具体操作写在 JavaScript 中。
 
 ## UI 构建
 
 - `desktop/` 只负责桌面窗口、本地服务生命周期和浏览器本机能力；保留 `server/` 的 Agent、API、数据库职责。
-- 浏览器界面在 `ui/src/browser/`，沿用 agentic 样式，不引入 worktop 的分屏工作区。目前仅支持手动浏览，不接 AI 控制。
+- 浏览器界面在 `ui/src/browser/`，沿用 agentic 样式，不引入 worktop 的分屏工作区。Agent 经父子进程 IPC 调用 Electron 的浏览器能力，网页不接触后端令牌。
 - 收起浏览器、切换网页标签和进入设置时保留网页实例。网页存储与聊天登录分区隔离。
 
 - 前端构建产物统一放在 `ui/dist`，由 `server/index.js` 直接托管。

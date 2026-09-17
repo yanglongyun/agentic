@@ -9,6 +9,7 @@ node_modules/
 
 /desktop/runtime/
 /release/
+/.wrangler/
 
 relay/worker/.wrangler/
 relay/worker/.dev.vars
@@ -18,3 +19,8 @@ relay/worker/.dev.vars
 /relay/worker/.secrets.json
 /relay/worker/.dev.vars.*
 /relay/worker/.env*
+
+/site/wrangler.jsonc
+/site/.wrangler/
+/site/.dev.vars*
+/site/.env*

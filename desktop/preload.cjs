@@ -5,6 +5,24 @@ function listen(channel, callback) {
   return () => ipcRenderer.removeListener(channel, listener);
 }
 contextBridge.exposeInMainWorld("agenticDesktop", {
+  computerState() {
+    return ipcRenderer.invoke("computer:state");
+  },
+  computerEnabled(value) {
+    return ipcRenderer.invoke("computer:enabled", value);
+  },
+  computerPermission(kind) {
+    return ipcRenderer.invoke("computer:permission", kind);
+  },
+  onComputerChanged(callback) {
+    return listen("computer:changed", callback);
+  },
+  onBrowserTool(callback) {
+    return listen("browser:tool-request", callback);
+  },
+  browserToolResult(result) {
+    return ipcRenderer.invoke("browser:tool-result", result);
+  },
   onOpenTab(callback) {
     return listen("browser:open-tab", callback);
   },

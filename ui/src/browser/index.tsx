@@ -22,6 +22,7 @@ import { NewTab, BookmarkEditor } from "./NewTab";
 import { HistoryPanel, DownloadsPanel } from "./Records";
 import { BrowserPreferences, ChromeImport } from "./Settings";
 import { AuthPrompt } from "./AuthPrompt";
+import { browserCommand } from "./control";
 import type { AuthRequest, BrowserSettings, Download } from "./desktop";
 import "./browser.css";
 
@@ -32,12 +33,13 @@ export function BrowserButton() {
   }
   return (
     <button
-      className={`browser-toggle${open ? " on" : ""}`}
+      className={`icon-btn browser-toggle${open ? " on" : ""}`}
       title={open ? "收起浏览器" : "打开浏览器"}
+      aria-label={open ? "收起浏览器" : "打开浏览器"}
+      aria-pressed={open}
       onClick={toggleBrowser}
     >
-      <Icon name="globe" size={16} />
-      <span>浏览器</span>
+      <Icon name="globe" size={18} />
     </button>
   );
 }
@@ -234,6 +236,17 @@ export function BrowserPanel() {
       }
       addTab(url, background, openerId);
     });
+    const offTool = desktop.onBrowserTool(async (request) => {
+      try {
+        const result = await browserCommand(request);
+        await desktop.browserToolResult({ id: request.id, result });
+      } catch (error) {
+        await desktop.browserToolResult({
+          id: request.id,
+          error: error instanceof Error ? error.message : "浏览器操作失败",
+        });
+      }
+    });
     const offDownload = desktop.onDownload((item) => {
       setDownloads((items) => [item, ...items.filter((one) => one.id !== item.id)]);
       if (item.state === "completed") {
@@ -247,6 +260,7 @@ export function BrowserPanel() {
     );
     return () => {
       offTab();
+      offTool();
       offDownload();
       offCommand();
       offAuth();

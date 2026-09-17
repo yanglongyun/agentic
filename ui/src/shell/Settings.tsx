@@ -8,6 +8,7 @@ import { toast } from "../overlay/toast";
 import { Icon } from "../icons/Icon";
 import { loadStatus, useThread } from "../thread/store";
 import { useShell } from "./layout";
+import { ComputerSettings } from "./Computer";
 
 interface ConfigView {
   url: string;
@@ -315,6 +316,7 @@ export function Settings() {
                   )}
                 </div>
               </section>
+              <ComputerSettings />
               <section className="settings-section">
                 <div className="settings-section-title">界面</div>
                 <div className="settings-theme">

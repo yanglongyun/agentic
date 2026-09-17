@@ -2,6 +2,11 @@ import { useId } from "react";
 // 自绘的极简线性图标。统一 24 视窗 / 1.8 描边 / 圆头,颜色随 currentColor。
 
 const GLYPHS = {
+  link: (
+    <>
+      <path d="M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l2-2" />
+    </>
+  ),
   more: (
     <>
       <circle cx="5" cy="12" r="1" />

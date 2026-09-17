@@ -814,6 +814,10 @@
   color: var(--text-3);
   background: var(--surface);
 }
+.remote-toggle.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 .remote-page {
   display: flex;
   height: 100dvh;

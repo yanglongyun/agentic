@@ -21,7 +21,7 @@ test("四个工具实际读写、精确替换、命令执行与错误反馈", as
   const c = await workspace(t);
   assert.deepEqual(
     tools.map((t) => t.name),
-    ["shell", "read", "write", "edit"],
+    ["computer", "browser", "shell", "read", "write", "edit"],
   );
   await runTool(
     {
@@ -234,7 +234,7 @@ test("压缩只看模型 total_tokens，长消息不触发估算", async (t) => 
 test("最终回答不立即压缩；模型完整块之后单独发送 usage", async (t) => {
   const emitted = [];
   const url = await modelServer(t, (request) => {
-    assert.equal(request.tools.length, 4);
+    assert.equal(request.tools.length, 6);
     return {
       output: [{ type: "reasoning", summary: [] }, message("回答", "output_text", "assistant")],
       usage: { input_tokens: 8, output_tokens: 3, total_tokens: 11 },

@@ -2,6 +2,10 @@
 
 项目事件：[Agent 的九种运行事件](./agent-events.md)。
 
+正式发布：[桌面安装包、签名公证与官网发布](./desktop-release.md)。
+
+Mac 桌面控制：[computer 工具接口、权限与停止](./computer-tool.md)。
+
 OpenAI 事件对照表：[OpenAI Responses API 流式事件完整清单](./responses-streaming-events.md)。
 
 在项目根目录执行：
@@ -10,7 +14,7 @@ OpenAI 事件对照表：[OpenAI Responses API 流式事件完整清单](./respo
 node dev/sse.js
 ```
 
-读取现有模型配置，发送标准 Responses 请求，附上现有四个工具定义。请求体使用脚本内手动填写的实验消息，方便查看思考内容和工具调用块。脚本只打印返回，不执行工具。
+读取现有模型配置，发送标准 Responses 请求，附上现有工具定义。请求体使用脚本内手动填写的实验消息，方便查看思考内容和工具调用块。脚本只打印返回，不执行工具。
 
 需要修改问题时直接编辑脚本中的 input 数组；当前不读取命令行问题。保存原始返回：
 
@@ -22,7 +26,7 @@ node dev/sse.js | tee dev/response.log
 
 ## 非流式请求
 
-`request.js` 使用相同的模型配置和四个工具定义，设置 `stream: false`，打印完整 JSON（只格式化缩进，不过滤字段）。请求体同样在脚本中手动编辑，不读取命令行问题：
+`request.js` 使用相同的模型配置和工具定义，设置 `stream: false`，打印完整 JSON（只格式化缩进，不过滤字段）。请求体同样在脚本中手动编辑，不读取命令行问题：
 
 ```sh
 node dev/request.js

@@ -8,6 +8,7 @@ import { setupPageMenu } from "./menu.js";
 import { browserShortcut } from "./shortcuts.js";
 import { profiles, readBookmarks, importCookies } from "./chrome.js";
 import { isWebURL } from "./url.js";
+import { setupControl } from "./control.js";
 export { isWebURL } from "./url.js";
 
 export function setupBrowser(getWindow, { node, core }) {
@@ -47,6 +48,22 @@ export function setupBrowser(getWindow, { node, core }) {
     return contents;
   }
   const downloads = setupDownloads(browsing, send, settings);
+  const control = setupControl({
+    page,
+    send,
+    allowedURL(url) {
+      const window = getWindow();
+      return (
+        isWebURL(url) &&
+        window &&
+        new URL(url).origin !== new URL(window.webContents.getURL()).origin
+      );
+    },
+  });
+  ipcMain.handle("browser:tool-result", (event, result) => {
+    check(event);
+    control.receive(result);
+  });
   const answerAuth = setupPermissions(browsing, getWindow, send, settings);
   ipcMain.handle("browser:state", (event) => {
     check(event);
@@ -71,6 +88,7 @@ export function setupBrowser(getWindow, { node, core }) {
       throw new Error("页面不属于当前窗口");
     }
     tabs.set(id, contentsId);
+    control.track(contents);
   });
   ipcMain.handle("browser:open-external", (event, url) => {
     check(event);
@@ -282,6 +300,8 @@ export function setupBrowser(getWindow, { node, core }) {
     setupPageMenu(contents, getWindow, send, tabId);
   });
   return {
+    execute: control.execute,
+    cancel: control.cancel,
     bindHost(contents) {
       shortcuts(contents, true);
     },

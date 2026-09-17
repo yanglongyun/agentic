@@ -35,7 +35,7 @@ export function ThreadView() {
           <Icon name="panel" size={17} />
         </button>
         <span className="topbar-title clip">{title}</span>
-        <RemoteButton />
+        <RemoteButton key={currentId} />
         <BrowserButton />
       </header>
       {!online && (
