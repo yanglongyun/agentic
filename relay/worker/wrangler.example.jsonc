@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "agentic",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "../../ui/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/rooms*", "/connect/*", "/remote/*"],
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROOMS",
+        "class_name": "RelayRoom",
+      },
+    ],
+  },
+  "exports": {
+    "RelayRoom": {
+      "type": "durable-object",
+      "storage": "sqlite",
+    },
+  },
+  "account_id": "YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "agentic.example.com",
+      "custom_domain": true,
+    },
+  ],
+}

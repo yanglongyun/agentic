@@ -1,0 +1,59 @@
+{
+  "appId": "dev.agentic.desktop",
+  "productName": "agentic",
+  "icon": "desktop/icon.png",
+  "directories": {
+    "output": "release"
+  },
+  "files": ["desktop/index.js", "desktop/browser/**/*.js", "desktop/preload.cjs", "package.json"],
+  "extraResources": [
+    {
+      "from": "server",
+      "to": "core/server",
+      "filter": ["**/*", "!dist/**/*", "!tests/**/*"]
+    },
+    {
+      "from": "ui/dist",
+      "to": "core/ui/dist"
+    },
+    {
+      "from": "desktop/server.js",
+      "to": "core/desktop/server.js"
+    },
+    {
+      "from": "desktop/runtime/package.json",
+      "to": "core/package.json"
+    },
+    {
+      "from": "LICENSE",
+      "to": "core/LICENSE"
+    },
+    {
+      "from": "desktop/runtime",
+      "to": "runtime",
+      "filter": ["node", "node.exe", "LICENSE"]
+    },
+    {
+      "from": "desktop/browser",
+      "to": "core/desktop/browser",
+      "filter": ["import-worker.js", "chrome-cookie.js"]
+    },
+    {
+      "from": "node_modules/ws",
+      "to": "core/node_modules/ws"
+    }
+  ],
+  "npmRebuild": false,
+  "mac": {
+    "target": ["dmg"],
+    "category": "public.app-category.productivity",
+    "identity": null
+  },
+  "win": {
+    "target": ["nsis"]
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Office"
+  }
+}

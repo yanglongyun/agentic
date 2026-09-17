@@ -1,238 +1,276 @@
 # agentic
 
-一个支持终端对话和 HTTP 调用的跨平台 AI agent。使用 OpenAI Responses API 运行工具循环，
-支持 Linux、macOS 和 Windows。发布包是单个 Go 二进制，用户不需要安装 Go、Python 或 Node.js。
+一个带浏览器的本地 Agent 客户端。保留现有 `ui/` 和 `server/`，Electron 负责启动本地服务、显示窗口和承载网页。
 
-## 安装
+独立的一键安装基础版在 `AGENT` 仓库；这个仓库继续开发客户端。
 
-安装脚本下载最新 GitHub Release。`main` 中尚未发布的功能需要从源码编译，
-仅推送代码不会更新 Release 中的二进制。
+## 桌面客户端
 
-Linux / macOS：
+需要 Node.js 22.23.1 或更新版本。
+
+```sh
+npm ci
+npm ci --prefix ui
+npm run app                 # 构建 UI 并启动客户端
+npm run app:pack            # 生成当前平台的应用目录
+npm run app:dist            # 生成当前平台的安装包
+npm run app:test            # 本地服务启动、登录、退出测试
+```
+
+产物在 `release/`。安装包携带 Electron、Node.js、现有后端和 `ui/dist`，使用时不需要另装 Node.js。桌面启动器通过原有登录接口建立本机会话，关闭客户端时关闭它启动的服务。
+
+聊天右上角的“浏览器”打开右侧面板，沿用 agentic 的样式。顶部为标签栏和地址栏，其他工具收在菜单中。
+
+- 标签：图标和加载状态、自动收窄、拖动排序、中键关闭、右键关闭其他／右侧、恢复关闭标签、拥挤时的全部标签列表。新链接紧邻来源标签。
+- 导航：网址与搜索、前进后退、刷新／停止、页内查找、缩放、截图、打印、系统浏览器打开、开发者工具。
+- 数据：新标签页展示书签和目录，支持编辑、移动和删除；浏览历史可搜索；下载显示实际进度，支持取消、显示文件、清除记录。
+- 网站：独立浏览分区、原生登录弹窗、HTTP 认证、逐站点权限授权。浏览器设置可更换搜索引擎、下载目录、重置权限、清理缓存和网站登录状态。
+- Chrome 导入：macOS 下手动选择资料，分别导入书签或 Cookie。导入登录状态需要勾选授权并点击导入，可能弹出系统钥匙串授权；不会自动读取，不保证所有网站能直接登录。
+
+快捷键支持 `⌘/Ctrl+L/T/W/Shift+T/F/D/R/P`、`⌘/Ctrl + +/-/0`、`Ctrl+Tab` 和 `Ctrl+Shift+Tab`。网页获得焦点后同样有效。
+
+拖动左侧栏右边缘或浏览器左边缘可以调整宽度，并在本机记住。左侧栏范围为 200–440px，聊天区和浏览器各至少保留 320px。标签排序、切换、收起面板或进入设置保留已加载网页；空白标签不创建网页进程；重启仅加载活动标签，其余在选中后加载。目前仅支持手动浏览，尚未接入 AI 控制。
+
+后端继续读取原来的 agentic 配置、数据库和图片。桌面资料单独放在系统应用数据目录的 `agentic-desktop/` 中；`AGENT_HOME` 可指定后端数据目录，`AGENT_DESKTOP_HOME` 可指定桌面资料目录。网页会话与聊天登录会话使用不同的存储分区。默认工作目录是用户目录，设置中的工作目录仍然优先。
+
+## 目录
+
+```text
+desktop/                     Electron 启动壳与本机浏览器能力
+  index.js                   启动服务、登录、创建窗口、退出清理
+  server.js                  调用现有 server 入口，管理进程生命周期
+  browser/                   标签通信、下载、权限、HTTP 认证、Chrome 导入
+  preload.cjs                向界面暴露少量桌面方法和事件
+  start.js                   开发启动入口
+  prepare.js                 为安装包准备 Node.js 运行环境
+ui/                          界面源码
+  src/
+    browser/                 浏览器面板、标签状态、网页视图
+  dist/                      UI 构建产物，由 server 托管
+  package.json
+  vite.config.ts             打包到 dist
+server/
+  index.js                   HTTP 入口，托管 ui/dist，/api 分发
+  api/
+    index.js                 按路径分发
+    http.js                  HTTP JSON 读写
+    chat/                    WS 订阅、发送、取消、保存确认
+    auth/
+      index.js               分发 login / logout / me
+      authorize.js           接口鉴权
+      login/index.js         登录
+      logout/index.js        退出
+      me/index.js            登录状态
+    sessions/
+      index.js               分发 HTTP 方法或进入 [id]
+      get.js                 会话列表
+      post.js                新建会话
+      [id]/
+        index.js             分发会话方法和下一级路径
+        get.js               会话详情
+        patch.js             修改标题
+        delete.js            删除会话及其消息、压缩记录
+        messages/
+          index.js           分发 GET
+          get.js             查询历史消息
+        compactions/index.js 查询压缩记录
+        images/              上传与读取本会话图片
+        remote/              注册、查看、撤销远程房间
+    config/
+      index.js               分发 GET / PUT
+      get.js                 查看配置
+      put.js                 保存配置
+    status/index.js          服务状态
+    images/
+      index.js               分发图片地址
+      [name]/index.js        分发 GET / HEAD
+      [name]/get.js          读取已保存的图片
+  ai/
+    index.js                 请求模型、解析流、重试
+    images.js                请求前将本地图片地址转换为 data URL
+  agent/
+    index.js                 接收消息，执行模型 / 压缩 / 工具循环，向外发事件
+    runner.js                接收工具调用，直接导入四个工具并执行、返回结果
+    compact.js               生成上下文摘要
+    tools.js                 四个工具的定义
+    functions/
+      shell.js               执行命令
+      read.js                读取文本和图片
+      write.js               写文件
+      edit.js                精确替换
+  db.js                      SQLite 连接、DDL、初始化表
+  images.js                  图片文件保存与读取
+  config.js                  配置读写
+  defaults.json              默认配置、提示词
+  scripts/                   命令行、安装服务、打包、检查
+  tests/                     行为测试
+  dist/                      发布包（构建生成）
+package.json                 开发命令
+install.sh / install.ps1      一行安装入口
+agent / agent.cmd            启动器
+```
+
+请求顺序例如：`server/index.js → api/index.js → sessions/index.js → [id]/index.js → messages/index.js → post.js`。每层消费一段路径，最后按 HTTP 方法进入处理文件。SQL 直接写在接口里，不封装查询、写入或事务方法。Agent 依次接收业务方准备的 instructions、messages、model，再接配置等参数，通过 `onEvent` 交付九种运行事件：`message`、`reasoning`、`function_call`、`function_call_output`、`retry`、`usage`、`compact`、`done`、`error`。SQL 保存由会话 API 负责，事件结构与发送顺序见 [dev/agent-events.md](./dev/agent-events.md)。
+
+## 开发
+
+需要 Node.js 22.23.1 或更新版本。
+
+```sh
+npm ci
+npm ci --prefix ui
+npm run ui:build
+npm start
+```
+
+打开启动日志中的地址，使用日志中的访问令牌登录，在设置里填写模型地址、API Key、模型名。模型地址为支持 Responses 消息格式的完整 HTTP 地址。
+
+开发界面：另开终端运行 `npm run ui:dev`，Vite 代理 `/api` 到本机 9528 端口。改后端可用 `npm run dev`。
+
+```sh
+npm run format              # 统一格式化源码
+npm run format:check        # 检查格式
+npm run check
+npm test
+npm run build               # 构建 UI，打包当前机器的 Node.js
+node server/scripts/smoke-install.js
+```
+
+## 数据库与压缩
+
+数据文件是 `chat.db`，DDL 统一放在 `server/db.js`，服务启动时建表：
+
+```sql
+CREATE TABLE sessions (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  created_at INTEGER,
+  updated_at INTEGER
+);
+CREATE TABLE messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT,
+  item TEXT,
+  usage TEXT,
+  created_at INTEGER
+);
+CREATE TABLE compactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT,
+  through_id INTEGER,
+  summary TEXT,
+  created_at INTEGER
+);
+CREATE INDEX idx_messages_session ON messages(session_id, id);
+CREATE INDEX idx_compactions_session ON compactions(session_id, id);
+```
+
+`item` 是 JSON 字符串，时间是毫秒时间戳。没有 FOREIGN KEY、CHECK 或其他业务表。
+
+- `messages.usage` 保存模型返回的原始 usage JSON，每次响应只放在最后一条模型输出上。用户消息和工具结果为 NULL；模型没有返回 usage 也存 NULL。
+- 每次请求模型之前，用上次响应的 `usage.total_tokens` 与 `compact_at` 比较（大于等于时压缩）。用户发消息时从数据库读最近模型输出的 usage；工具执行后继续循环时使用本次模型返回的 usage。不累加历史 usage，不估算 token。
+- usage 反映上次响应的实际用量，不包含后来新增的用户输入和工具结果。没有有效用量就跳过判断，不回退到更早的 usage。
+- 压缩先发 compact.started，成功后通过 compact.completed 交付标准 user 摘要和数组覆盖范围；API 先保存摘要，再让 Agent 继续。压缩失败会终止本次运行。最终回答结束后不立即压缩，等下次请求模型前判断。
+- 每次压缩追加一条记录，summary 保存标准 user 摘要块的完整文字，`through_id` 表示已总结到哪条消息（包含该条）。
+- 下一次请求加载**最新摘要 + id 大于 through_id 的消息**。
+- 后续压缩包含上次摘要，原始消息始终保留，可以翻看。
+- 压缩按完整工具调用边界截断，至少保留 `keep` 条最近消息；没有合适边界或待压缩范围只有一个块就跳过。
+- 用户消息立即保存；每轮模型输出和对应工具全部完成后一起保存。失败或取消只丢弃当前未完成轮次，之前完成的工具轮次及已入库摘要保留。已执行的命令和文件修改仍然有效。
+
+开发阶段只使用当前表结构。数据库入口只执行建表，不包含升级、迁移或旧结构处理。
+
+图片保存在数据目录的 `images/` 下。图片工具结果使用标准 `function_call_output.output` 数组，数据库和事件中的 `input_image.image_url` 只保存 `/api/images/文件名`，不保存 Base64。AI 请求入口读取图片文件，仅在本次请求中替换为 data URL；原始消息不变。前端通过带登录鉴权的图片接口显示工具图片。业务层通过运行配置 `images_dir` 指定图片目录。
+
+## 接口
+
+接口使用登录 Cookie 或 `Authorization: Bearer <访问令牌>`。
+
+| 方法                 | 路径                                             | 用途                                 |
+| -------------------- | ------------------------------------------------ | ------------------------------------ |
+| POST                 | `/api/auth/login`                                | `{ token }` 登录                     |
+| POST                 | `/api/auth/logout`                               | 退出                                 |
+| GET                  | `/api/auth/me`                                   | 登录状态                             |
+| GET                  | `/api/status`                                    | 模型配置状态、版本、工作目录         |
+| GET / PUT            | `/api/config`                                    | 查看 / 保存配置                      |
+| GET / HEAD           | `/api/images/:name`                              | 查看已保存的图片                     |
+| GET / POST           | `/api/sessions`                                  | 列表 / 新建 `{ title? }`             |
+| GET / PATCH / DELETE | `/api/sessions/:id`                              | 查看 / 改名 `{ title }` / 删除       |
+| GET                  | `/api/sessions/:id/messages?before=123&limit=60` | 历史消息                             |
+| WS                   | `/api/chat`                                      | 订阅、发送、取消、运行事件和保存确认 |
+| POST                 | `/api/sessions/:id/images`                       | 单张图片上传                         |
+| GET                  | `/api/sessions/:id/images/:name`                 | 读取本会话图片                       |
+| GET / POST / DELETE  | `/api/sessions/:id/remote`                       | 查看、开启、关闭远程访问             |
+| GET                  | `/api/sessions/:id/compactions`                  | 压缩记录                             |
+| GET                  | `/healthz`                                       | 服务存活检查                         |
+
+Agent 的九种事件位于 WS 业务消息的 `run.event.event` 内。业务层另行发送订阅快照、请求确认、消息保存、摘要保存、会话状态和运行结束等消息，完整协议见 [dev/chat-protocol.md](dev/chat-protocol.md)。
+
+每个会话同时只运行一轮，不同会话可并行。关闭页面、切换会话或断开 WS 不停止执行；点击停止才发送 cancel。重连后订阅快照恢复已保存消息和实时增量。发送请求使用持久化 request_id 去重，断线重发不会重复执行。
+
+数据库提交后通过 messages.saved 和 compaction.created 直接更新前端，回复完成不重新请求消息或列表。
+
+远程中转实现位于 [relay/worker](relay/worker/README.md)。部署 Worker 后，在会话右上角「远程」创建访问链接。远程仅能操作指定会话，本地客户端需保持运行。
+
+输入框支持选择或粘贴图片，发送前可预览和移除，也可只发送图片。每条消息最多 5 张，支持 PNG、JPEG、GIF、WebP，单张不超过 10 MiB。图片存放在数据目录 images/，消息只保存本地图片地址；模型请求时读取文件，构造标准 input_image。删除会话时一并删除图片。
+
+## 服务器一行安装
+
+**先将此版本发布到仓库的 Releases**，下面的命令才会安装这次重构的版本：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/yanglongyun/agentic/main/install.sh | sh
 ```
 
-root 默认安装到 `/usr/local/bin`，普通用户默认安装到 `~/.local/bin`。
-可通过环境变量 `AGENT_BIN_DIR` 指定安装目录。如果该目录不在 PATH 中，
-请执行安装脚本输出的 `export PATH=...` 命令，或使用输出的完整路径启动。
+Linux 有 systemd 时，安装脚本会启动服务并设置开机启动。发布包包含 Node.js、后端代码和构建后的 UI，服务器无需安装 npm 或编译前端。
+
+```sh
+agent token
+agent status
+agent restart
+agent stop
+agent start
+agent uninstall             # 卸载服务，保留数据
+```
 
 Windows PowerShell：
 
 ```powershell
 irm https://raw.githubusercontent.com/yanglongyun/agentic/main/install.ps1 | iex
+agent serve
 ```
 
-然后配置并开始对话：
+本地生成指定平台发布包：
 
 ```sh
-agent config
-agent
+npm run ui:build
+npm run release:pack -- --platform linux --arch amd64
 ```
 
-## HTTP 服务
+平台支持 `linux / darwin / windows`，架构支持 `amd64 / arm64`。打包器下载并校验固定版本 Node.js，产物位于 `server/dist/`。安装时校验 SHA-256；`AGENT_RELEASE_BASE_URL` 可指定私有发布镜像，`AGENT_NO_SERVICE=1` 可只安装不启动。
 
-运行 `agent` 或 `agent resume` 时，终端聊天和 HTTP API 同时启动；退出聊天时关闭 API 并取消未完成任务。
-默认监听 `127.0.0.1:9528`，启动信息显示实际监听地址。端口占用会报错，不会自动换端口。
-API 支持异步任务、独立会话、SSE 实时事件、取消和 异步 `agent` 子任务。
+数据默认放在 Linux `~/.config/agentic`、macOS `~/Library/Application Support/agentic`、Windows `%APPDATA%/agentic`。可用 `AGENT_HOME` 指定目录。该目录包含 `config.json`、`chat.db` 及 SQLite 日志文件。
 
-首次自动生成独立访问令牌，保存在 `config.json` 的 `api.token`；网站后端读取相同令牌。
-也可用 `AGENT_SERVER_TOKEN` 覆盖，令牌至少 16 字符，不要放在浏览器前端。
+### 验证代码
 
 ```sh
-agent config
-agent
+npm run check
+npm test
+npm run ui:test
+npm run ui:build
+npm run format:check
 ```
 
-例如，在已设置相同令牌的另一个终端创建任务：
+配置文件只接受当前字段，缺失、未知或无效字段会直接报错。模型上下文窗口非零时，压缩阈值必须小于窗口；实际压缩只使用模型返回的 total_tokens。整轮回复超时由 run_timeout 控制，AI 请求不另设隐藏时限。
 
-```sh
-curl -sS http://127.0.0.1:9528/v1/tasks \
-  -H "Authorization: Bearer $AGENT_SERVER_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"prompt":"查看当前目录并概括项目"}'
-```
+### 页面路由
 
-返回任务 ID；查询 `GET /v1/tasks/<id>`，订阅 `GET /v1/tasks/<id>/events`，
-取消使用 `POST /v1/tasks/<id>/cancel`。省略 `session_id` 创建新会话，传入已有 ID 继续对话。
-服务默认并发 4、子任务深度 2、超时 10 分钟，在 `config.json` 的 `api` 中调整。
-例如：`agent config set api-listen 127.0.0.1:9528`。
-完整启动示例、接口和限制见 [HTTP API 文档](docs/http-api.md)。
+前端使用 React Router，页面入口定义在 `ui/src/router.tsx`。
 
-## 用法
+| URL             | 页面     |
+| --------------- | -------- |
+| `/`             | 新对话   |
+| `/sessions/:id` | 指定会话 |
+| `/settings`     | 设置     |
+| `/login`        | 登录     |
 
-```sh
-agent                         # 开启新的交互会话
-
-agent config show
-agent config set model gpt-4o-mini
-agent resume
-agent version
-```
-
-## 终端交互
-
-用户消息显示在灰色背景块中，助手回复直接显示正文，不显示“你 / 助理”角色标签。
-关闭颜色时退化为纯文本显示。
-
-- 任务运行时按 **Esc** 或 **Ctrl+C** 停止当前轮，等待模型请求或工具退出后回到输入框，会话保留。
-- 空闲时 Ctrl+C、Ctrl+D 或 `/exit` 退出程序；Esc 清空输入，或退出会话选择器。
-- `/resume` 显示历史会话列表（ID、更新时间、首条消息预览），输入编号后显示最近的历史对话并继续；`n` / `p` 翻页，Esc 或空输入返回。
-- `/status` 查看模型、目录、Token 和当前会话 ID。
-恢复会话默认显示最近 20 条用户和助手消息，可通过 `agent config set resume-messages 40` 调整（1–200 条）。
-只读取 `messages.jsonl` 最后 1 MiB，单条最多显示 4,000 字符，总计最多 20,000 字符；较早或超长内容会省略。
-显示历史不改变模型上下文，模型仍使用压缩摘要和后续消息。
-
-上下文自动压缩，不提供手动压缩命令。
-
-取消的消息与工具记录仍保留在 `messages.jsonl`，但恢复当前轮开始前的模型上下文，避免下一轮带入未完成的工具调用。
-已经写入的文件或其他外部操作不会回滚。Linux/macOS 会取消 shell 进程组；Windows 仍仅保证终止直接子进程。
-会话列表只读取元数据及最多 8 KiB 的首条消息预览，不扫描完整历史。不支持的旧格式会话不列出，也不迁移。
-同一会话仍不应由多个 CLI 或 HTTP 任务同时操作。
-
-## 工具
-
-| 工具 | 功能 |
-|---|---|
-| `shell` | Linux/macOS 使用 Bash，Windows 使用 PowerShell，支持超时和输出截断 |
-| `read` | 读取带行号文本；png/jpg/gif/webp 会作为图片交给模型 |
-| `write` | 完整写入文件，自动创建父目录 |
-| `edit` | 精确字符串替换，默认要求唯一匹配 |
-| `agent` | 异步派发独立子任务，立即返回 agent_id；结果自动回到父会话 |
-
-Agent 最多连续运行 50 轮。对话超过配置的 token 水位后，会总结早期上下文并保留近期原文；
-完整消息只追加到 `messages.jsonl`；压缩摘要和覆盖边界追加到 `compactions.jsonl`。
-当前上下文由已生效的最新摘要与其后的未压缩消息构成，不再保存另一份 history 文件。
-
-`agent` 工具在终端与 HTTP 任务中均可使用。子任务独立执行，不继承父会话历史。
-主会话可以继续聊天；子任务完成、失败或取消后，结果先保存，再由父会话顺序处理并回复。
-父会话正在回复时结果排队；切换到其他会话后，结果仍写回原会话，不输出到当前窗口。
-子任务可继续派发子任务，目录按父子关系嵌套；所有子任务都不进入 `/resume`。
-退出程序会取消后台任务。结果处理失败或中断时保留待处理结果，恢复父会话后可重试；已经成功处理的结果不会再次触发回复。
-回传提示词由 `agent_result_prefix` 配置；每批最多处理 4 个结果，单个结果回传最多 12,000 字符，完整内容保存在子任务目录。
-
-## 数据位置
-
-所有运行数据统一放在一个目录，不使用数据库：
-
-```text
-agentic/
-├── config.json             # 模型配置
-├── state.json              # 当前 CLI 会话 ID
-└── sessions/
-    └── <会话ID>/
-        ├── session.json        # 会话信息、用量、起点和有效压缩记录
-        ├── messages.jsonl      # 完整消息历史，只追加
-        ├── compactions.jsonl   # 压缩摘要和覆盖边界，只追加
-        └── agents/<agent_id>/  # 子 agent，不进入 /resume
-            ├── state.json     # 运行状态、结果、处理标记和上下文游标
-            ├── messages.jsonl
-            └── compactions.jsonl
-```
-
-| 平台 | 默认根目录 |
-|---|---|
-| Linux | `~/.config/agentic/`（遵循 XDG_CONFIG_HOME） |
-| macOS | `~/Library/Application Support/agentic/` |
-| Windows | `%APPDATA%\agentic\` |
-
-可用 `AGENT_HOME` 指定统一根目录。兼容旧目录变量，根目录优先级为
-`AGENT_HOME` > `AGENT_DATA_DIR` > `AGENT_CONFIG_DIR` > 平台默认目录。
-启动 `agent` 不创建会话；发送第一条消息时才创建 `sessions/cli-<随机ID>/`。
-查看帮助、状态、历史列表或直接退出都不产生新会话，也不改变当前会话记录。
-通过 `/resume` 选择历史会话后直接继续该会话；空会话不在列表中显示。
-HTTP 会话也位于 `sessions/`；省略 session_id 即创建新会话，提供已有 ID 则继续该会话。
-同一会话不应由 CLI 和 HTTP 或多个进程同时操作。
-
-不提供旧数据迁移，不复制、重命名或删除旧文件。发现选定目录中的旧格式会话会报错。
-需要保留旧数据时，请使用新的 `AGENT_HOME` 或新会话 ID，并重新配置模型。
-不提供单次参数提问、管道提问或 reset。退出后重新运行 `agent`，发送第一条消息时开启新会话，旧记录保留。
-`agent resume` 打开历史会话选择器。
-失败或取消的任务消息同样保留，但通过会话元数据排除出后续模型上下文。
-顶层状态不保存任务执行进度；HTTP 任务状态和事件仍在内存，重启不恢复。
-
-环境变量 `AGENT_URL`、`AGENT_KEY`、`AGENT_MODEL`、`AGENT_SYSTEM` 优先于配置文件。
-
-## 上下文读取与性能
-
-会话格式 `format: 3` 使用字节偏移：`session.json` 中的 `compaction` 定位当前生效的压缩记录
-（-1 表示尚未压缩）；压缩记录的 `through` 定位 `messages.jsonl` 中未压缩部分的起点。
-每轮只解析该条摘要与后续消息，不扫描完整消息历史或全部压缩记录。
-取消任务的消息范围同样按字节跳过，检查点和恢复通过文件大小定位，历史仍保留。
-
-SSE 按事件变化唤醒，只发送游标之后的新事件；空闲连接每 15 秒发送心跳。
-最近 64 条事件复用有界缓冲区。消息写入仍保留落盘同步，不以放弃持久性换取速度。
-性能随当前未压缩上下文长度增长，而不是随已经压缩的历史长度增长。
-此前的会话格式不做迁移，请使用新会话或新数据目录。
-
-## 提示词配置
-
-提示词保存在数据根目录的 `config.json`，首次运行会生成默认配置：
-
-- `system`：主提示词。
-- `compact_system`：上下文压缩提示词。
-- `compact_prefix`：压缩摘要进入上下文时的前缀。
-
-可以直接编辑 JSON，或执行：
-
-```sh
-agent config set system "你的主提示词"
-agent config set compact-system "你的压缩要求"
-agent config set compact-prefix "历史摘要："
-agent config show
-```
-
-支持变量 `{{os}}`、`{{arch}}`、`{{host}}`、`{{user}}`、`{{workdir}}`、`{{time}}`。
-空字符串表示不添加相应提示词，不会触发代码中的备用文本。
-`AGENT_SYSTEM` 非空时仍优先于配置中的 `system`。
-CLI 在启动时读取配置；修改后下次启动生效，运行中的聊天和 API 需要一起重启。
-仓库默认模板位于 `internal/config/defaults.json`，运行时以用户配置为准。
-
-## 代码结构
-
-核心模块按 `ai`（模型）、`agent`（循环）、`tools`（工具）、`task`（任务）、
-`server`（HTTP）、`cli`（终端）划分。中文目录说明与修改入口见 [代码架构](docs/architecture.md)。
-
-## 开发
-
-需要 Go 1.22 或更新版本：
-
-```sh
-make check
-make build
-./dist/agent version
-```
-
-本地交叉编译示例：
-
-```sh
-GOOS=windows GOARCH=amd64 go build -o dist/agent.exe ./cmd/agent
-```
-
-## 发布
-
-推送 `main` 或提交 PR 会运行测试、竞态检测、静态检查及六个平台的编译检查；
-这些检查不会创建 Release。发布由 `v*` 标签触发，标签需使用尚未发布的新版本号。
-
-推送版本标签后，GitHub Actions 会测试并生成六个发布包：
-
-```sh
-git tag vX.Y.Z
-git push origin vX.Y.Z
-```
-
-- Linux amd64 / arm64
-- macOS amd64 / arm64
-- Windows amd64 / arm64
-
-安装脚本检测系统和 CPU 后，从最新的 GitHub Release 下载对应文件。
-
-## 安全说明
-
-`shell` 工具能以当前用户权限执行命令。请在可信目录和低权限账户中使用，不要把 API Key
-写入提示词、命令输出或仓库文件。
-
-## License
-
-MIT
+URL 决定当前页面和会话。支持直接打开、刷新、前进后退；新会话创建后用会话 URL 替换新对话入口。未登录时先进入登录页，登录成功后回到原页面。服务器只为这些页面路径返回 `ui/dist/index.html`，未知资源和 API 保持各自的错误响应。

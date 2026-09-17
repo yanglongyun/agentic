@@ -1,7 +1,20 @@
-# 构建产物
-/dist/
-/agent
-/agent.exe
+# 发布包和临时构建目录
+/server/dist/
+/work/
 
-# 本地
+# 本地依赖和日志
+node_modules/
 *.log
+/.claude/
+
+/desktop/runtime/
+/release/
+
+relay/worker/.wrangler/
+relay/worker/.dev.vars
+
+# Cloudflare 本机部署配置与密钥，仅保留示例
+/relay/worker/wrangler.jsonc
+/relay/worker/.secrets.json
+/relay/worker/.dev.vars.*
+/relay/worker/.env*

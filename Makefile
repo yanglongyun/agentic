@@ -1,9 +1,0 @@
-.PHONY: build test check
-build:
-	go build -o dist/agent ./cmd/agent
-test:
-	go test ./...
-check:
-	gofmt -w cmd internal
-	go test ./...
-	go vet ./...

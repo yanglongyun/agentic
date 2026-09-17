@@ -1,0 +1,39 @@
+{
+  "name": "agentic",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "description": "带本地 Agent 和浏览器的桌面客户端",
+  "engines": {
+    "node": ">=22.23.1"
+  },
+  "bin": {
+    "agent": "server/scripts/cli.js"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test server/tests/*.test.js",
+    "check": "node server/scripts/check.js",
+    "ui:dev": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build",
+    "build": "npm run ui:build && node server/scripts/package.js --local",
+    "release:pack": "node server/scripts/package.js",
+    "format": "prettier --write --ignore-unknown .",
+    "format:check": "prettier --check --ignore-unknown .",
+    "ui:test": "npm --prefix ui test",
+    "app": "npm run ui:build && node desktop/start.js",
+    "app:pack": "npm run ui:build && node desktop/prepare.js && electron-builder --config electron-builder.json --dir",
+    "app:dist": "npm run ui:build && node desktop/prepare.js && electron-builder --config electron-builder.json",
+    "app:test": "node --test desktop/tests/*.test.js"
+  },
+  "devDependencies": {
+    "electron": "44.4.1",
+    "electron-builder": "26.15.3",
+    "prettier": "3.6.2"
+  },
+  "main": "desktop/index.js",
+  "dependencies": {
+    "ws": "8.21.3"
+  }
+}

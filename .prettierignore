@@ -1,0 +1,18 @@
+node_modules/
+ui/node_modules/
+ui/dist/
+server/dist/
+package-lock.json
+ui/package-lock.json
+
+/desktop/runtime/
+/release/
+
+relay/worker/.wrangler/
+relay/worker/.dev.vars
+
+# Cloudflare 本机部署配置与密钥，仅保留示例
+/relay/worker/wrangler.jsonc
+/relay/worker/.secrets.json
+/relay/worker/.dev.vars.*
+/relay/worker/.env*
