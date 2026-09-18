@@ -24,3 +24,6 @@ relay/worker/.dev.vars
 /site/.wrangler/
 /site/.dev.vars*
 /site/.env*
+
+# macOS 目录元数据
+.DS_Store

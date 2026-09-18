@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>登录 · agentic</title>
+    <link rel="stylesheet" href="assets/prototype.css" />
+  </head>
+  <body data-page="login">
+    <div class="login-page">
+      <div class="login-card">
+        <div class="login-logo">
+          <svg class="ic"><use href="#i-sparkles" /></svg>
+        </div>
+        <h1>登录 agentic</h1>
+        <p class="login-sub">输入访问令牌以连接本地 Agent 服务</p>
+
+        <div class="login-field">
+          <label>访问令牌</label>
+          <div class="login-input-wrap">
+            <svg class="ic"><use href="#i-lock" /></svg>
+            <input
+              class="input mono"
+              type="password"
+              value="agt_9f4k2m7x8q1v3n5p6r0t"
+              placeholder="agt_…"
+            />
+          </div>
+        </div>
+
+        <button class="login-submit" type="button">登录</button>
+
+        <p class="login-tip">
+          令牌仅保存在本机钥匙串，不会上传到任何服务器。<br />
+          还没有令牌？<a href="home.html">在终端运行 agentic token 获取</a>
+        </p>
+
+        <div class="login-foot">
+          <span>agentic desktop</span>
+          <span>v0.4.2 · macOS</span>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/prototype.js"></script>
+  </body>
+</html>

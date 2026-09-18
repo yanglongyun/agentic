@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>设置 · agentic</title>
+    <link rel="stylesheet" href="assets/prototype.css" />
+  </head>
+  <body data-page="settings">
+    <div class="app">
+      <!-- 侧栏 -->
+      <aside class="sidebar">
+        <div class="brand-row">
+          <div class="brand-logo">
+            <svg class="ic"><use href="#i-sparkles" /></svg>
+          </div>
+          <span class="brand-name">agentic</span>
+          <span class="brand-ver">v0.4.2</span>
+        </div>
+        <div class="sidebar-new">
+          <button class="btn-new" type="button">
+            <svg class="ic"><use href="#i-compose" /></svg>新对话<kbd>⌘N</kbd>
+          </button>
+        </div>
+        <div class="sidebar-label">最近对话</div>
+        <div class="session-list">
+          <div class="session-item">
+            <span class="pulse-dot" title="运行中"></span>
+            <span class="session-title">重写登录接口的重试逻辑</span>
+            <span class="session-time">刚刚</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">浏览器标签页偶发白屏排查</span>
+            <span class="session-time">12 分钟前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">设置页表单校验补齐</span>
+            <span class="session-time">1 小时前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">压缩阈值默认值讨论</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <a
+            class="sidebar-settings"
+            href="settings.html"
+            style="background: var(--bg-hover); color: var(--text-1)"
+          >
+            <svg class="ic"><use href="#i-settings" /></svg>设置
+          </a>
+        </div>
+      </aside>
+
+      <!-- 设置主区 -->
+      <main class="main">
+        <div class="settings-body">
+          <nav class="settings-nav">
+            <div class="sn-title">设置</div>
+            <a class="sn-item active" href="#model"
+              ><svg class="ic"><use href="#i-cpu" /></svg>模型</a
+            >
+            <a class="sn-item" href="#appearance"
+              ><svg class="ic"><use href="#i-palette" /></svg>外观</a
+            >
+            <a class="sn-item" href="#mac"
+              ><svg class="ic"><use href="#i-command" /></svg>Mac 控制</a
+            >
+            <a class="sn-item" href="#browser"
+              ><svg class="ic"><use href="#i-globe" /></svg>浏览器</a
+            >
+            <a class="sn-item" href="#about"
+              ><svg class="ic"><use href="#i-info" /></svg>关于</a
+            >
+          </nav>
+
+          <div class="settings-scroll">
+            <div class="settings-col">
+              <!-- 模型 -->
+              <section class="settings-card" id="model">
+                <div class="settings-card-head">
+                  <svg class="ic"><use href="#i-cpu" /></svg>
+                  <h2>模型</h2>
+                  <p>Agent 主循环使用的模型服务</p>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>模型地址</b><span>OpenAI 兼容接口</span></div>
+                  <div class="form-control">
+                    <input class="input mono" value="https://api.moonshot.cn/v1" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>API Key</b><span>仅保存在本机</span></div>
+                  <div class="form-control">
+                    <input class="input mono" type="password" placeholder="请输入 API Key" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>模型名</b></div>
+                  <div class="form-control">
+                    <input class="input mono" value="kimi-k2-0905" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>上下文窗口</b><span>超出后触发压缩</span></div>
+                  <div class="form-control">
+                    <input class="input mono" style="max-width: 140px" value="128000" />
+                    <span class="input-suffix">tokens</span>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>压缩阈值</b><span>占用达到该比例时压缩</span></div>
+                  <div class="form-control">
+                    <input class="input mono" style="max-width: 140px" value="0.85" />
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>运行超时</b><span>单次模型请求</span></div>
+                  <div class="form-control">
+                    <input class="input mono" style="max-width: 140px" value="300" />
+                    <span class="input-suffix">秒</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 外观 -->
+              <section class="settings-card" id="appearance">
+                <div class="settings-card-head">
+                  <svg class="ic"><use href="#i-palette" /></svg>
+                  <h2>外观</h2>
+                  <p>界面主题与显示偏好</p>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>主题</b><span>跟随系统时随 macOS 切换</span></div>
+                  <div class="form-control">
+                    <div class="seg">
+                      <button type="button">
+                        <svg class="ic"><use href="#i-sun" /></svg>浅色
+                      </button>
+                      <button type="button">
+                        <svg class="ic"><use href="#i-moon" /></svg>深色
+                      </button>
+                      <button type="button" class="active">
+                        <svg class="ic"><use href="#i-monitor" /></svg>跟随系统
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>紧凑消息间距</b><span>会话页消息更密集</span></div>
+                  <div class="form-control">
+                    <label class="switch"><input type="checkbox" /><i></i></label>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Mac 控制 -->
+              <section class="settings-card" id="mac">
+                <div class="settings-card-head">
+                  <svg class="ic"><use href="#i-command" /></svg>
+                  <h2>Mac 控制</h2>
+                  <p>允许 Agent 操作本机的能力边界</p>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>控制鼠标与键盘</b><span>点击、输入、快捷键</span></div>
+                  <div class="form-control">
+                    <label class="switch"><input type="checkbox" checked /><i></i></label>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>读取屏幕截图</b><span>用于理解当前界面</span></div>
+                  <div class="form-control">
+                    <label class="switch"><input type="checkbox" checked /><i></i></label>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>辅助功能权限</b><span>在系统设置中授予</span></div>
+                  <div class="form-control">
+                    <span class="status-chip ok"
+                      ><svg class="ic"><use href="#i-check" /></svg>已授权</span
+                    >
+                    <button class="btn" type="button">重新检查</button>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>屏幕录制权限</b></div>
+                  <div class="form-control">
+                    <span class="status-chip warn"
+                      ><svg class="ic"><use href="#i-info" /></svg>未授权</span
+                    >
+                    <button class="btn" type="button">前往授权</button>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 浏览器 -->
+              <section class="settings-card" id="browser">
+                <div class="settings-card-head">
+                  <svg class="ic"><use href="#i-globe" /></svg>
+                  <h2>浏览器</h2>
+                  <p>内置浏览器面板的默认行为</p>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>搜索引擎</b><span>地址栏输入非网址时</span></div>
+                  <div class="form-control">
+                    <select class="input" style="max-width: 180px">
+                      <option>Google</option>
+                      <option>DuckDuckGo</option>
+                      <option>Bing</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>下载目录</b></div>
+                  <div class="form-control">
+                    <input class="input mono" value="~/Downloads/agentic" />
+                    <button class="btn" type="button">
+                      <svg class="ic"><use href="#i-folder" /></svg>选择
+                    </button>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="form-label"><b>缓存</b><span>共占用 386 MB</span></div>
+                  <div class="form-control">
+                    <button class="btn danger-soft" type="button">
+                      <svg class="ic"><use href="#i-trash" /></svg>清理缓存
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 关于 -->
+              <section class="settings-card" id="about">
+                <div class="settings-card-head">
+                  <svg class="ic"><use href="#i-info" /></svg>
+                  <h2>关于</h2>
+                </div>
+                <div class="about-row">
+                  <div class="about-logo">
+                    <svg class="ic"><use href="#i-sparkles" /></svg>
+                  </div>
+                  <div>
+                    <h3>agentic desktop</h3>
+                    <p>v0.4.2 (build 241) · Electron 36.2 · arm64</p>
+                  </div>
+                  <span style="flex: 1"></span>
+                  <button class="btn" type="button">
+                    <svg class="ic"><use href="#i-rotate" /></svg>检查更新
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="assets/prototype.js"></script>
+  </body>
+</html>

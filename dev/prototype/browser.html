@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>浏览器 · agentic</title>
+    <link rel="stylesheet" href="assets/prototype.css" />
+  </head>
+  <body data-page="browser">
+    <div class="app">
+      <!-- 侧栏 -->
+      <aside class="sidebar">
+        <div class="brand-row">
+          <div class="brand-logo">
+            <svg class="ic"><use href="#i-sparkles" /></svg>
+          </div>
+          <span class="brand-name">agentic</span>
+          <span class="brand-ver">v0.4.2</span>
+        </div>
+        <div class="sidebar-new">
+          <button class="btn-new" type="button">
+            <svg class="ic"><use href="#i-compose" /></svg>新对话<kbd>⌘N</kbd>
+          </button>
+        </div>
+        <div class="sidebar-label">最近对话</div>
+        <div class="session-list">
+          <div class="session-item active">
+            <span class="session-title">浏览器标签页偶发白屏排查</span>
+            <span class="session-time">12 分钟前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="pulse-dot" title="运行中"></span>
+            <span class="session-title">重写登录接口的重试逻辑</span>
+            <span class="session-time">刚刚</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">设置页表单校验补齐</span>
+            <span class="session-time">1 小时前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">压缩阈值默认值讨论</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">发布会文案草拟</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <a class="sidebar-settings" href="settings.html">
+            <svg class="ic"><use href="#i-settings" /></svg>设置
+          </a>
+        </div>
+      </aside>
+
+      <!-- 分栏主区 -->
+      <main class="main">
+        <div class="split">
+          <!-- 左侧：缩窄的聊天 -->
+          <section class="chat-pane">
+            <header class="chat-header" style="padding: 0 14px">
+              <span class="chat-title">浏览器标签页偶发白屏排查</span>
+              <span class="spacer"></span>
+              <a class="btn-ghost active" href="chat.html" title="收起浏览器">
+                <svg class="ic"><use href="#i-panel" /></svg>
+              </a>
+            </header>
+
+            <div class="chat-scroll">
+              <div class="chat-col">
+                <div class="msg-user">
+                  <p>
+                    帮我打开 Flowbase 的官网，看看他们首页是怎么写定价锚点的，顺便总结一下首屏结构。
+                  </p>
+                </div>
+
+                <div class="msg-assistant">
+                  <div class="assistant-mark">
+                    <svg class="ic"><use href="#i-sparkles" /></svg>
+                  </div>
+                  <div class="assistant-body">
+                    <p>已经在右侧打开官网，我先读取首屏内容。</p>
+
+                    <div class="tool-card" data-tool>
+                      <button class="tool-head" type="button">
+                        <span class="tool-icon t-browser"
+                          ><svg class="ic"><use href="#i-globe" /></svg
+                        ></span>
+                        <span class="tool-meta">
+                          <span class="tool-name">浏览器<span class="tool-tag">browser</span></span>
+                          <span class="tool-summary">打开 flowbase.dev 并等待加载完成</span>
+                        </span>
+                        <span class="tool-status done">
+                          <svg class="ic"><use href="#i-check" /></svg>完成<span class="tool-time"
+                            >1.8s</span
+                          >
+                        </span>
+                        <span class="tool-chevron"
+                          ><svg class="ic"><use href="#i-chevron" /></svg
+                        ></span>
+                      </button>
+                      <div class="tool-body">
+                        <div class="codeblock">
+                          <div class="codeblock-head">
+                            <span class="code-lang">JavaScript</span>
+                            <button class="code-copy" type="button">
+                              <svg class="ic"><use href="#i-copy" /></svg>复制
+                            </button>
+                          </div>
+                          <pre><span class="tok-k">await</span> page.<span class="tok-f">goto</span>(<span class="tok-s">'https://flowbase.dev'</span>);
+<span class="tok-k">await</span> page.<span class="tok-f">waitForSelector</span>(<span class="tok-s">'h1'</span>);
+<span class="tok-k">return</span> page.<span class="tok-f">textContent</span>(<span class="tok-s">'main'</span>);</pre>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p>
+                      首屏结构很典型：<strong
+                        >社会证明徽章 → 大标题价值主张 → 副文案 → 双按钮 → 功能三连卡</strong
+                      >。定价锚点挂在第二张卡片「自动化报表」上，用「每周节省 6
+                      小时」换算成本。需要我整理成对比表格吗？
+                    </p>
+
+                    <div class="usage-bar">
+                      <span class="u-item"
+                        ><svg class="ic"><use href="#i-zap" /></svg>Tokens 4,216</span
+                      >
+                      <span class="u-item"
+                        >上下文 <span class="ctx-meter"><i style="width: 12%"></i></span> 12%</span
+                      >
+                      <span class="u-item">耗时 6.5s</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="composer-wrap">
+              <div class="composer-col">
+                <div class="composer">
+                  <textarea rows="1" placeholder="继续追问…"></textarea>
+                  <div class="composer-bar">
+                    <button class="icon-btn bordered" type="button" title="添加图片">
+                      <svg class="ic"><use href="#i-image" /></svg>
+                    </button>
+                    <span style="flex: 1"></span>
+                    <span class="model-pill"><span class="dot"></span>kimi-k2-0905</span>
+                    <button class="btn-send" type="button" title="发送">
+                      <svg class="ic"><use href="#i-send" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 右侧：浏览器面板 -->
+          <section class="browser-pane">
+            <div class="browser-tabs">
+              <div
+                class="btab active"
+                data-url='<span class="url-host">flowbase.dev</span><span class="url-path">/</span>'
+              >
+                <span class="favicon">🟣</span>
+                <span class="btab-title">Flowbase 官网</span>
+                <span class="btab-x" title="关闭标签"
+                  ><svg class="ic"><use href="#i-x" /></svg
+                ></span>
+              </div>
+              <div
+                class="btab"
+                data-url='<span class="url-host">developer.mozilla.org</span><span class="url-path">/zh-CN/docs/Web/API/Pointer_events</span>'
+              >
+                <span class="favicon">🦊</span>
+                <span class="btab-title">MDN · Pointer events</span>
+                <span class="btab-x" title="关闭标签"
+                  ><svg class="ic"><use href="#i-x" /></svg
+                ></span>
+              </div>
+              <div
+                class="btab"
+                data-url='<span class="url-host">github.com</span><span class="url-path">/electron/electron/releases</span>'
+              >
+                <span class="loading-dot" title="加载中"></span>
+                <span class="btab-title">electron/releases</span>
+                <span class="btab-x" title="关闭标签"
+                  ><svg class="ic"><use href="#i-x" /></svg
+                ></span>
+              </div>
+              <button class="btab-new" type="button" title="新标签页">
+                <svg class="ic ic-sm"><use href="#i-plus" /></svg>
+              </button>
+            </div>
+
+            <div class="browser-toolbar">
+              <button class="nav-btn" type="button" title="后退">
+                <svg class="ic"><use href="#i-arrow-left" /></svg>
+              </button>
+              <button class="nav-btn" type="button" disabled title="前进">
+                <svg class="ic"><use href="#i-arrow-right" /></svg>
+              </button>
+              <button class="nav-btn" type="button" title="刷新">
+                <svg class="ic"><use href="#i-rotate" /></svg>
+              </button>
+              <div class="address-bar">
+                <svg class="ic"><use href="#i-lock" /></svg>
+                <span class="url-text"
+                  ><span class="url-host">flowbase.dev</span><span class="url-path">/</span></span
+                >
+              </div>
+              <button class="nav-btn" type="button" title="下载">
+                <svg class="ic"><use href="#i-download" /></svg>
+              </button>
+              <a class="nav-btn" href="chat.html" title="关闭面板"
+                ><svg class="ic"><use href="#i-x" /></svg
+              ></a>
+            </div>
+
+            <!-- 网页视口：虚构 SaaS 落地页 mock -->
+            <div class="browser-viewport">
+              <div class="webmock">
+                <nav class="webmock-nav">
+                  <span class="webmock-logo"><i></i>Flowbase</span>
+                  <a href="#">产品</a>
+                  <a href="#">定价</a>
+                  <a href="#">客户案例</a>
+                  <a href="#">文档</a>
+                  <span class="wm-cta">
+                    <a class="wm-btn ghost" href="#">登录</a>
+                    <a class="wm-btn primary" href="#">免费试用</a>
+                  </span>
+                </nav>
+
+                <div class="webmock-hero">
+                  <span class="webmock-badge">✦ 已服务 4,000+ 数据团队</span>
+                  <h1>把周报时间<br />还给<em>真正的分析</em></h1>
+                  <p>
+                    Flowbase
+                    自动汇总散落在各处的业务数据，每周一生成可下钻的团队报表，让分析师专注洞察而不是搬运。
+                  </p>
+                  <div style="display: flex; gap: 12px; justify-content: center">
+                    <a class="wm-btn primary" style="height: 38px; padding: 0 20px" href="#"
+                      >免费开始 →</a
+                    >
+                    <a class="wm-btn ghost" style="height: 38px; padding: 0 20px" href="#"
+                      >预约演示</a
+                    >
+                  </div>
+                </div>
+
+                <div class="webmock-cards">
+                  <div class="webmock-card">
+                    <div class="wm-ic" style="background: rgba(255, 122, 89, 0.12)">🗂️</div>
+                    <h3>一键接入数据源</h3>
+                    <p>支持 60+ 常见 SaaS 与数据库，五分钟完成首次同步，无需写一行代码。</p>
+                  </div>
+                  <div class="webmock-card">
+                    <div class="wm-ic" style="background: rgba(255, 77, 141, 0.12)">📊</div>
+                    <h3>自动化报表</h3>
+                    <p>每周节省约 6 小时的手工整理时间，报表自动推送到邮箱与 IM。</p>
+                  </div>
+                  <div class="webmock-card">
+                    <div class="wm-ic" style="background: rgba(90, 95, 245, 0.12)">🔍</div>
+                    <h3>异常自动下钻</h3>
+                    <p>指标波动自动归因到维度组合，附赠可复现的查询路径。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <script src="assets/prototype.js"></script>
+  </body>
+</html>

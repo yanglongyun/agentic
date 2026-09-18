@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>新对话 · agentic</title>
+    <link rel="stylesheet" href="assets/prototype.css" />
+  </head>
+  <body data-page="home">
+    <div class="app">
+      <!-- 侧栏 -->
+      <aside class="sidebar">
+        <div class="brand-row">
+          <div class="brand-logo">
+            <svg class="ic"><use href="#i-sparkles" /></svg>
+          </div>
+          <span class="brand-name">agentic</span>
+          <span class="brand-ver">v0.4.2</span>
+        </div>
+        <div class="sidebar-new">
+          <button class="btn-new" type="button">
+            <svg class="ic"><use href="#i-compose" /></svg>新对话<kbd>⌘N</kbd>
+          </button>
+        </div>
+        <div class="sidebar-label">最近对话</div>
+        <div class="session-list">
+          <div class="session-item">
+            <span class="pulse-dot" title="运行中"></span>
+            <span class="session-title">重写登录接口的重试逻辑</span>
+            <span class="session-time">刚刚</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">浏览器标签页偶发白屏排查</span>
+            <span class="session-time">12 分钟前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">设置页表单校验补齐</span>
+            <span class="session-time">1 小时前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">压缩阈值默认值讨论</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">发布会文案草拟</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">升级 Electron 到 36 的影响面</span>
+            <span class="session-time">周二</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">数据库迁移脚本复核</span>
+            <span class="session-time">周一</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <a class="sidebar-settings" href="settings.html">
+            <svg class="ic"><use href="#i-settings" /></svg>设置
+          </a>
+        </div>
+      </aside>
+
+      <!-- 新对话首页 -->
+      <main class="main">
+        <div class="home-hero">
+          <div class="home-inner">
+            <div class="home-logo">
+              <svg class="ic"><use href="#i-sparkles" /></svg>
+            </div>
+            <h1 class="home-hi">晚上好，今天想让 Agent 做点什么？</h1>
+            <p class="home-sub">描述任务，agentic 会在你的工作目录里执行命令、读写文件。</p>
+
+            <div class="composer">
+              <textarea
+                rows="1"
+                placeholder="给 agentic 派个任务，例如「帮我把登录接口加上重试」…"
+              ></textarea>
+              <div class="composer-bar">
+                <button class="icon-btn bordered" type="button" title="添加图片（最多 5 张）">
+                  <svg class="ic"><use href="#i-image" /></svg>
+                </button>
+                <span class="attach-count">最多 5 张图片</span>
+                <span style="flex: 1"></span>
+                <span class="model-pill"
+                  ><span class="dot"></span>kimi-k2-0905<svg class="ic">
+                    <use href="#i-chevron" /></svg
+                ></span>
+                <button class="btn-send disabled" type="button" title="发送">
+                  <svg class="ic"><use href="#i-send" /></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="starter-grid">
+              <button class="starter-card" type="button">
+                <span class="starter-icon"
+                  ><svg class="ic"><use href="#i-terminal" /></svg
+                ></span>
+                <span>
+                  <h4>排查本机环境</h4>
+                  <p>帮我看看哪些端口被占用，并列出占用进程</p>
+                </span>
+              </button>
+              <button class="starter-card" type="button">
+                <span class="starter-icon"
+                  ><svg class="ic"><use href="#i-globe" /></svg
+                ></span>
+                <span>
+                  <h4>用浏览器查资料</h4>
+                  <p>查一下 Electron 36 有哪些 breaking changes</p>
+                </span>
+              </button>
+              <button class="starter-card" type="button">
+                <span class="starter-icon"
+                  ><svg class="ic"><use href="#i-pen" /></svg
+                ></span>
+                <span>
+                  <h4>改写一段文案</h4>
+                  <p>把这份 changelog 改写成一篇发布博文</p>
+                </span>
+              </button>
+              <button class="starter-card" type="button">
+                <span class="starter-icon"
+                  ><svg class="ic"><use href="#i-zap" /></svg
+                ></span>
+                <span>
+                  <h4>重构一小段代码</h4>
+                  <p>把回调写法重构成 async / await 并补上测试</p>
+                </span>
+              </button>
+            </div>
+
+            <p class="composer-hint" style="margin-top: 26px">
+              <svg class="ic"><use href="#i-folder" /></svg>
+              Agent 在 <code>~/work/agentic</code> 执行命令、读写文件
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="assets/prototype.js"></script>
+  </body>
+</html>

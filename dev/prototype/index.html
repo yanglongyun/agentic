@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>agentic · 界面原型导航</title>
+    <link rel="stylesheet" href="assets/prototype.css" />
+  </head>
+  <body data-page="index">
+    <div class="index-page">
+      <div class="index-wrap">
+        <header class="index-hero">
+          <div class="home-logo">
+            <svg class="ic"><use href="#i-sparkles" /></svg>
+          </div>
+          <h1>agentic <span>界面原型</span></h1>
+          <p>本地 Agent 桌面客户端 · 高保真静态原型 · 共 5 个页面，纯 HTML / CSS / 原生 JS</p>
+        </header>
+
+        <div class="index-section">页面</div>
+        <div class="index-grid">
+          <a class="index-card" href="home.html">
+            <div class="index-card-top">
+              <div class="index-card-icon">
+                <svg class="ic"><use href="#i-compose" /></svg>
+              </div>
+              <h3>新对话首页</h3>
+            </div>
+            <p>侧栏 + 居中问候语 + 浮起输入框 + 2×2 起手卡，点击卡片即可填入输入框。</p>
+            <span class="route">/</span>
+          </a>
+
+          <a class="index-card" href="chat.html">
+            <div class="index-card-top">
+              <div class="index-card-icon">
+                <svg class="ic"><use href="#i-message" /></svg>
+              </div>
+              <h3>会话页</h3>
+            </div>
+            <p>
+              完整消息流：用户消息、Markdown
+              回复、代码块、可折叠工具调用卡（含运行中态）、图片附件与 usage 信息。
+            </p>
+            <span class="route">/sessions/:id</span>
+          </a>
+
+          <a class="index-card" href="browser.html">
+            <div class="index-card-top">
+              <div class="index-card-icon">
+                <svg class="ic"><use href="#i-panel" /></svg>
+              </div>
+              <h3>浏览器分栏</h3>
+            </div>
+            <p>
+              聊天缩窄至左侧，右侧浏览器面板：三个标签、地址栏、导航按钮，网页视口内嵌一个虚构 SaaS
+              落地页。
+            </p>
+            <span class="route">/sessions/:id · 浏览器</span>
+          </a>
+
+          <a class="index-card" href="settings.html">
+            <div class="index-card-top">
+              <div class="index-card-icon">
+                <svg class="ic"><use href="#i-settings" /></svg>
+              </div>
+              <h3>设置页</h3>
+            </div>
+            <p>
+              分组卡片式表单：模型配置、外观主题、Mac 控制开关、浏览器设置与关于，iOS
+              风格开关与三格分段控件。
+            </p>
+            <span class="route">/settings</span>
+          </a>
+
+          <a class="index-card" href="login.html">
+            <div class="index-card-top">
+              <div class="index-card-icon">
+                <svg class="ic"><use href="#i-lock" /></svg>
+              </div>
+              <h3>登录页</h3>
+            </div>
+            <p>访问令牌登录：渐变品牌标识、令牌输入框与主按钮，背景为克制的双色径向光晕。</p>
+            <span class="route">/login</span>
+          </a>
+        </div>
+
+        <div class="index-section">设计令牌速览</div>
+        <div class="token-row">
+          <div class="token-chip"><i style="background: #5a5ff5"></i>主色 <code>#5a5ff5</code></div>
+          <div class="token-chip"><i style="background: #474de0"></i>深色 <code>#474de0</code></div>
+          <div class="token-chip">
+            <i
+              style="background: rgba(90, 95, 245, 0.12); border: 1px solid rgba(90, 95, 245, 0.3)"
+            ></i
+            >Soft 填充 <code>9% α</code>
+          </div>
+          <div class="token-chip"><i style="background: #17a05e"></i>成功 <code>#17a05e</code></div>
+          <div class="token-chip"><i style="background: #cf8408"></i>警告 <code>#cf8408</code></div>
+          <div class="token-chip"><i style="background: #e5484d"></i>危险 <code>#e5484d</code></div>
+          <div class="token-chip">
+            <i style="background: #ffffff; border: 1px solid #e3e5ee"></i>浅色底
+            <code>#ffffff</code>
+          </div>
+          <div class="token-chip">
+            <i style="background: #0e0f14"></i>深色底 <code>#0e0f14</code>
+          </div>
+          <div class="token-chip">
+            <i style="background: linear-gradient(135deg, #6c70f8, #7b5cf0)"></i>品牌渐变
+            <code>135°</code>
+          </div>
+        </div>
+        <div class="token-row" style="margin-top: 10px">
+          <div class="token-chip">圆角 <code>卡片 12–16 · 按钮 10 · 胶囊 999</code></div>
+          <div class="token-chip">字号 <code>正文 15 / 侧栏 13.5 / 辅助 12.5</code></div>
+          <div class="token-chip">布局 <code>侧栏 268 · 对话列 768 居中</code></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="assets/prototype.js"></script>
+  </body>
+</html>

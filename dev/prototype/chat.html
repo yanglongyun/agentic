@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>重写登录接口的重试逻辑 · agentic</title>
+    <link rel="stylesheet" href="assets/prototype.css" />
+  </head>
+  <body data-page="chat">
+    <div class="app">
+      <!-- 侧栏 -->
+      <aside class="sidebar">
+        <div class="brand-row">
+          <div class="brand-logo">
+            <svg class="ic"><use href="#i-sparkles" /></svg>
+          </div>
+          <span class="brand-name">agentic</span>
+          <span class="brand-ver">v0.4.2</span>
+        </div>
+        <div class="sidebar-new">
+          <button class="btn-new" type="button">
+            <svg class="ic"><use href="#i-compose" /></svg>新对话<kbd>⌘N</kbd>
+          </button>
+        </div>
+        <div class="sidebar-label">最近对话</div>
+        <div class="session-list">
+          <div class="session-item active">
+            <span class="pulse-dot" title="运行中"></span>
+            <span class="session-title">重写登录接口的重试逻辑</span>
+            <span class="session-time">刚刚</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">浏览器标签页偶发白屏排查</span>
+            <span class="session-time">12 分钟前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">设置页表单校验补齐</span>
+            <span class="session-time">1 小时前</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">压缩阈值默认值讨论</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">发布会文案草拟</span>
+            <span class="session-time">昨天</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+          <div class="session-item">
+            <span class="session-title">升级 Electron 到 36 的影响面</span>
+            <span class="session-time">周二</span>
+            <span class="session-ops">
+              <button title="重命名">
+                <svg class="ic"><use href="#i-pen" /></svg>
+              </button>
+              <button title="删除">
+                <svg class="ic"><use href="#i-trash" /></svg>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div class="sidebar-footer">
+          <a class="sidebar-settings" href="settings.html">
+            <svg class="ic"><use href="#i-settings" /></svg>设置
+          </a>
+        </div>
+      </aside>
+
+      <!-- 会话主区 -->
+      <main class="main">
+        <header class="chat-header">
+          <span class="chat-title">重写登录接口的重试逻辑</span>
+          <span class="chat-sub">~/work/agentic</span>
+          <span class="spacer"></span>
+          <a class="btn-ghost" href="browser.html">
+            <svg class="ic"><use href="#i-panel" /></svg>浏览器
+          </a>
+        </header>
+
+        <div class="chat-scroll">
+          <div class="chat-col">
+            <!-- 用户消息 1 -->
+            <div class="msg-user">
+              <p>
+                登录接口在弱网下偶发 401 之后就直接失败了，帮我加上指数退避重试，最多 3
+                次，网络错误也要重试。
+              </p>
+            </div>
+
+            <!-- 助手回复 1 -->
+            <div class="msg-assistant">
+              <div class="assistant-mark">
+                <svg class="ic"><use href="#i-sparkles" /></svg>
+              </div>
+              <div class="assistant-body">
+                <p>好的，我先看一下现有登录请求的实现，再决定重试逻辑挂在哪一层。</p>
+
+                <!-- 工具卡：read（已完成，折叠） -->
+                <div class="tool-card" data-tool>
+                  <button class="tool-head" type="button">
+                    <span class="tool-icon t-read"
+                      ><svg class="ic"><use href="#i-file" /></svg
+                    ></span>
+                    <span class="tool-meta">
+                      <span class="tool-name">读取文件<span class="tool-tag">read</span></span>
+                      <span class="tool-summary">src/api/login.ts · 共 86 行</span>
+                    </span>
+                    <span class="tool-status done">
+                      <svg class="ic"><use href="#i-check" /></svg>完成<span class="tool-time"
+                        >0.3s</span
+                      >
+                    </span>
+                    <span class="tool-chevron"
+                      ><svg class="ic"><use href="#i-chevron" /></svg
+                    ></span>
+                  </button>
+                  <div class="tool-body">
+                    <div class="codeblock">
+                      <div class="codeblock-head">
+                        <span class="code-lang">TypeScript</span>
+                        <span class="code-file">src/api/login.ts</span>
+                        <button class="code-copy" type="button">
+                          <svg class="ic"><use href="#i-copy" /></svg>复制
+                        </button>
+                      </div>
+                      <pre><span class="tok-k">export async function</span> <span class="tok-f">login</span>(payload: LoginPayload) {
+  <span class="tok-k">const</span> res = <span class="tok-k">await</span> api.<span class="tok-f">post</span>(<span class="tok-s">'/auth/login'</span>, payload);
+  <span class="tok-c">// 目前没有任何重试，401 / 断网直接抛出</span>
+  <span class="tok-k">return</span> res.data;
+}</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <p>
+                  现状确认：登录请求裸调 <code class="inline">api.post</code>，任何失败都会直接抛给
+                  UI。我把重试收敛到一个
+                  <code class="inline">loginWithRetry</code> 里，只重试「值得重试」的错误：
+                </p>
+
+                <h3>改动要点</h3>
+                <ul>
+                  <li>
+                    <strong>重试条件</strong>：HTTP 401（令牌刷新竞态）与网络层错误（<code
+                      class="inline"
+                      >ECONNRESET</code
+                    >、超时），4xx 业务错误不重试。
+                  </li>
+                  <li>
+                    <strong>退避策略</strong>：基数 500ms 指数退避 + ≤120ms
+                    随机抖动，避免弱网恢复瞬间的羊群效应。
+                  </li>
+                  <li>
+                    <strong>上限</strong>：最多重试 3
+                    次，耗尽后抛出最后一次的原始错误，调用方感知不变。
+                  </li>
+                </ul>
+
+                <!-- 代码块 -->
+                <div class="codeblock">
+                  <div class="codeblock-head">
+                    <span class="code-lang">JavaScript</span>
+                    <span class="code-file">src/api/login.ts · 新增</span>
+                    <button class="code-copy" type="button">
+                      <svg class="ic"><use href="#i-copy" /></svg>复制
+                    </button>
+                  </div>
+                  <pre><span class="tok-k">async function</span> <span class="tok-f">loginWithRetry</span>(payload, { maxRetries = <span class="tok-n">3</span> } = {}) {
+  <span class="tok-k">let</span> attempt = <span class="tok-n">0</span>;
+  <span class="tok-k">const</span> baseDelay = <span class="tok-n">500</span>;
+
+  <span class="tok-k">for</span> (;;) {
+    <span class="tok-k">try</span> {
+      <span class="tok-k">return await</span> api.<span class="tok-f">post</span>(<span class="tok-s">'/auth/login'</span>, payload);
+    } <span class="tok-k">catch</span> (err) {
+      <span class="tok-k">const</span> retriable =
+        err.status === <span class="tok-n">401</span> ||
+        err.code === <span class="tok-s">'ECONNRESET'</span> ||
+        err.code === <span class="tok-s">'ETIMEDOUT'</span>;
+      <span class="tok-k">if</span> (!retriable || attempt &gt;= maxRetries) <span class="tok-k">throw</span> err;
+
+      <span class="tok-k">const</span> jitter = Math.<span class="tok-f">random</span>() * <span class="tok-n">120</span>;
+      <span class="tok-k">await</span> <span class="tok-f">sleep</span>(baseDelay * <span class="tok-n">2</span> ** attempt + jitter);
+      attempt += <span class="tok-n">1</span>;
+    }
+  }
+}</pre>
+                </div>
+
+                <!-- 工具卡：shell（已完成，折叠） -->
+                <div class="tool-card" data-tool>
+                  <button class="tool-head" type="button">
+                    <span class="tool-icon t-shell"
+                      ><svg class="ic"><use href="#i-terminal" /></svg
+                    ></span>
+                    <span class="tool-meta">
+                      <span class="tool-name">执行命令<span class="tool-tag">shell</span></span>
+                      <span class="tool-summary">pnpm test auth.retry · 4 个用例全部通过</span>
+                    </span>
+                    <span class="tool-status done">
+                      <svg class="ic"><use href="#i-check" /></svg>完成<span class="tool-time"
+                        >2.4s</span
+                      >
+                    </span>
+                    <span class="tool-chevron"
+                      ><svg class="ic"><use href="#i-chevron" /></svg
+                    ></span>
+                  </button>
+                  <div class="tool-body">
+                    <div class="codeblock">
+                      <div class="codeblock-head">
+                        <span class="code-lang">Shell</span>
+                        <button class="code-copy" type="button">
+                          <svg class="ic"><use href="#i-copy" /></svg>复制
+                        </button>
+                      </div>
+                      <pre><span class="tok-c">$ pnpm test auth.retry</span>
+<span class="tok-s"> ✓ 401 时按指数退避重试</span> <span class="tok-c">(183ms)</span>
+<span class="tok-s"> ✓ ECONNRESET 网络错误重试</span> <span class="tok-c">(96ms)</span>
+<span class="tok-s"> ✓ 422 业务错误不重试，直接抛出</span> <span class="tok-c">(41ms)</span>
+<span class="tok-s"> ✓ 超过 3 次后抛出最后一次错误</span> <span class="tok-c">(88ms)</span>
+Tests  <span class="tok-s">4 passed</span> (4)</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- usage 信息 -->
+                <div class="usage-bar">
+                  <span class="u-item"
+                    ><svg class="ic"><use href="#i-zap" /></svg>Tokens 12,408</span
+                  >
+                  <span class="u-item">
+                    上下文 <span class="ctx-meter"><i style="width: 38%"></i></span> 38%
+                  </span>
+                  <span class="u-item"
+                    ><svg class="ic"><use href="#i-cpu" /></svg>kimi-k2-0905</span
+                  >
+                  <span class="u-item">耗时 18.2s</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 用户消息 2：含图片 -->
+            <div class="msg-user">
+              <div class="attach-row">
+                <div class="attach-thumb thumb-a">
+                  <span class="thumb-label">error-toast.png</span>
+                </div>
+                <div class="attach-thumb thumb-b">
+                  <span class="thumb-label">login-weak-net.png</span>
+                </div>
+              </div>
+              <p>
+                参考这两张截图：重试期间把按钮文案改成「重试中
+                (2/3)」，失败后的错误提示样式再对齐一下设计稿。
+              </p>
+            </div>
+
+            <!-- 助手回复 2：运行中 -->
+            <div class="msg-assistant">
+              <div class="assistant-mark">
+                <svg class="ic"><use href="#i-sparkles" /></svg>
+              </div>
+              <div class="assistant-body">
+                <p>
+                  收到，我来改 <code class="inline">LoginButton</code> 的状态文案，并同步调整错误
+                  toast 的描边与圆角。改完跑一遍相关测试。
+                </p>
+
+                <!-- 工具卡：edit（已完成，折叠） -->
+                <div class="tool-card" data-tool>
+                  <button class="tool-head" type="button">
+                    <span class="tool-icon t-write"
+                      ><svg class="ic"><use href="#i-pen" /></svg
+                    ></span>
+                    <span class="tool-meta">
+                      <span class="tool-name">编辑文件<span class="tool-tag">edit</span></span>
+                      <span class="tool-summary">src/components/LoginButton.tsx · 2 处修改</span>
+                    </span>
+                    <span class="tool-status done">
+                      <svg class="ic"><use href="#i-check" /></svg>完成<span class="tool-time"
+                        >0.6s</span
+                      >
+                    </span>
+                    <span class="tool-chevron"
+                      ><svg class="ic"><use href="#i-chevron" /></svg
+                    ></span>
+                  </button>
+                  <div class="tool-body">
+                    <div class="codeblock">
+                      <div class="codeblock-head">
+                        <span class="code-lang">Diff</span>
+                        <span class="code-file">src/components/LoginButton.tsx</span>
+                        <button class="code-copy" type="button">
+                          <svg class="ic"><use href="#i-copy" /></svg>复制
+                        </button>
+                      </div>
+                      <pre><span class="tok-c">@@ -18,7 +18,9 @@</span>
+-  &lt;Button loading={pending}&gt;登录&lt;/Button&gt;
++  &lt;Button loading={pending}&gt;
++    {retrying ? `重试中 (${attempt}/3)` : '登录'}
++  &lt;/Button&gt;</pre>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 工具卡：shell（运行中，展开） -->
+                <div class="tool-card open" data-tool>
+                  <button class="tool-head" type="button">
+                    <span class="tool-icon t-shell"
+                      ><svg class="ic"><use href="#i-terminal" /></svg
+                    ></span>
+                    <span class="tool-meta">
+                      <span class="tool-name">执行命令<span class="tool-tag">shell</span></span>
+                      <span class="tool-summary">pnpm test login-button --watch=false</span>
+                    </span>
+                    <span class="tool-status running">
+                      <span class="pulse-dot"></span>运行中<span class="tool-time">3.1s</span>
+                    </span>
+                    <span class="tool-chevron"
+                      ><svg class="ic"><use href="#i-chevron" /></svg
+                    ></span>
+                  </button>
+                  <div class="tool-body">
+                    <div class="codeblock">
+                      <div class="codeblock-head">
+                        <span class="code-lang">Shell</span>
+                        <button class="code-copy" type="button">
+                          <svg class="ic"><use href="#i-copy" /></svg>复制
+                        </button>
+                      </div>
+                      <pre><span class="tok-c">$ pnpm test login-button --watch=false</span>
+<span class="tok-s"> ✓ 渲染默认登录按钮</span> <span class="tok-c">(52ms)</span>
+<span class="tok-s"> ✓ 重试中显示「重试中 (n/3)」</span> <span class="tok-c">(87ms)</span>
+<span class="tok-n"> ⠸ 正在运行：失败后展示错误 toast…</span></pre>
+                    </div>
+                    <div class="tool-note">
+                      <svg class="ic spin"><use href="#i-rotate" /></svg>
+                      命令仍在执行，输出会持续追加…
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 输入区（运行中：停止按钮） -->
+        <div class="composer-wrap">
+          <div class="composer-col">
+            <div class="composer">
+              <div class="composer-attach">
+                <div class="mini-thumb thumb-a">
+                  <span class="x"
+                    ><svg class="ic"><use href="#i-x" /></svg
+                  ></span>
+                </div>
+                <div class="mini-thumb thumb-b">
+                  <span class="x"
+                    ><svg class="ic"><use href="#i-x" /></svg
+                  ></span>
+                </div>
+              </div>
+              <textarea rows="1" placeholder="补充说明，或等 Agent 跑完再输入…"></textarea>
+              <div class="composer-bar">
+                <button class="icon-btn bordered" type="button" title="添加图片">
+                  <svg class="ic"><use href="#i-image" /></svg>
+                </button>
+                <span class="attach-count">2 / 5 张图片</span>
+                <span style="flex: 1"></span>
+                <span class="model-pill"
+                  ><span class="dot"></span>kimi-k2-0905<svg class="ic">
+                    <use href="#i-chevron" /></svg
+                ></span>
+                <button class="btn-send stop" type="button" title="停止">
+                  <svg class="ic"><use href="#i-stop" /></svg>
+                </button>
+              </div>
+            </div>
+            <p class="composer-hint">
+              <svg class="ic"><use href="#i-folder" /></svg>
+              Agent 在 <code>~/work/agentic</code> 执行命令、读写文件
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="assets/prototype.js"></script>
+  </body>
+</html>
