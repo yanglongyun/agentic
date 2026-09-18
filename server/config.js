@@ -47,6 +47,7 @@ export function validateConfig(config) {
     "timeout",
     "max_output",
     "api",
+    "browser",
   ];
   for (const key of Object.keys(config)) {
     if (!fields.includes(key)) {
@@ -98,6 +99,26 @@ export function validateConfig(config) {
     (!path.isAbsolute(config.workdir) || !fs.statSync(config.workdir).isDirectory())
   ) {
     throw new Error("工作目录必须是已存在的绝对目录");
+  }
+  if (!config.browser || typeof config.browser !== "object" || Array.isArray(config.browser)) {
+    throw new Error("browser 必须是对象");
+  }
+  for (const key of Object.keys(config.browser)) {
+    if (!["mode", "jev_model", "jev_key"].includes(key)) {
+      throw new Error(`未知 browser 字段：${key}`);
+    }
+  }
+  if (!["model", "jev"].includes(config.browser.mode)) {
+    throw new Error("browser.mode 必须是 model 或 jev");
+  }
+  if (typeof config.browser.jev_model !== "string" || !config.browser.jev_model.trim()) {
+    throw new Error("browser.jev_model 不能为空");
+  }
+  if (typeof config.browser.jev_key !== "string") {
+    throw new Error("browser.jev_key 必须是字符串");
+  }
+  if (config.browser.mode === "jev" && !config.browser.jev_key.trim()) {
+    throw new Error("Jev 模式需要填写 Jev API Key");
   }
   if (!config.api || typeof config.api !== "object" || Array.isArray(config.api)) {
     throw new Error("api 必须是对象");

@@ -94,3 +94,51 @@ server/agent/functions/browser.js
 业务层在运行配置写入 `session_id`，服务器为每个 IPC 请求携带 `sessionId`。桌面脚本运行绑定该对话，UI 先检查标签归属，主进程再核对已登记网页的归属。`browser.tabs()` 只返回本对话网页，`open()` 在本对话创建标签，其他页面方法不能跨对话访问。模型工具参数仍然只有 `summary` 和 `code`。
 
 不同对话的浏览器脚本可以并行；同一对话同时只执行一个脚本。后台运行可以打开、操作、截图自己的网页，但不会把用户正在看的对话或标签切走。网页在隐藏时保留尺寸，供后台输入和截图使用。
+
+## 两种浏览器控制方式
+
+设置 → 浏览器控制选择 `纯模型` 或 `Jev`，下一轮对话生效。
+
+- 纯模型沿用主 Agent 的工具循环，直接编写 JavaScript 操作和验证。
+- Jev 模式由主 Agent 下发具体任务，独立循环观察页面、选择动作并执行。主 Agent 在返回后检查业务目标。
+- 两种方式共用同一对话的网页、登录状态和 IPC 执行通道，不新开 Chrome 或调试端口。
+
+```js
+const tabs = await browser.tabs();
+const page = browser.page(tabs[0].id);
+return await page.run("查找里斯本的 Design 酒店，启用免费取消，打开 Casa Flora 的详情");
+```
+
+也可以先 `browser.open(url)` 再调用 `page.run(instructions)`。页面选择放在 JavaScript 中，不增加工具参数。Jev 运行时必须等待其返回，再进行其他操作。
+
+返回 `status`（completed / blocked）、`pageId`、`url`、`title`、`text`、`actions`、`usage` 和 `elapsed_ms`。`completed` 只表示 Jev 的判断，主 Agent 应用正文或截图核对；截图仍调用 `page.screenshot()`。异常沿现有工具错误返回，显式停止取消整轮对话，不会伪造完成结果。
+
+配置：
+
+```json
+{
+  "browser": {
+    "mode": "model",
+    "jev_model": "jev-latest",
+    "jev_key": ""
+  }
+}
+```
+
+`jev_key` 保存在本机配置文件，不随 App 打包；设置接口仅返回是否已设置，留空保存保留现有 Key。主模型地址、Key 和模型不重复配置。Jev 决策使用 TypeSafe 接口；填写文字使用当前模型的 Responses API，实际用量放在任务结果中，不混入主 Agent 的上下文压缩阈值。
+
+模块：
+
+```text
+server/browser/
+  index.js          执行入口与线程生命周期
+  worker.js         summary/code 的 JavaScript 环境，提供 page.run
+  page.js           两种方式共用的 IPC、对话占用、取消与图片保存
+  jev/
+    index.js        任务循环
+    ai.js           Jev 决策与文本模型请求
+    snapshot.js     可见 DOM、节点编号、页面状态
+    actions.js      操作前检查与动作交付
+```
+
+每次决策和文字生成后核对页面状态，失效决策重新观察。动作执行异常不重放；用户操作被控制网页时中止。Jev 没有轮数上限，使用设置中的整轮回复超时；纯模型脚本仍为 60 秒。当前支持主 frame 的常见 HTML/ARIA 控件、原生下拉框、滚动和等待；视觉、跨源 iframe、Shadow DOM、文件上传等不属于 Jev 观察能力。Jev 不接收截图，主模型仍可通过现有截图工具检查。

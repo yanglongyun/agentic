@@ -25,6 +25,7 @@ interface ConfigView {
   run_timeout: number;
   timeout: number;
   max_output: number;
+  browser: { mode: "model" | "jev"; jev_model: string; jev_key_set: boolean };
   api: { listen: string };
   paths: { data_dir: string; config: string; web_dir: string };
 }
@@ -43,6 +44,9 @@ interface Form {
   timeout: string;
   max_output: string;
   listen: string;
+  browser_mode: string;
+  jev_model: string;
+  jev_key: string;
 }
 type NumberField =
   | "context_window"
@@ -66,6 +70,9 @@ const toForm = (config: ConfigView): Form => ({
   timeout: String(config.timeout),
   max_output: String(config.max_output),
   listen: config.api.listen,
+  browser_mode: config.browser.mode,
+  jev_model: config.browser.jev_model,
+  jev_key: "",
 });
 
 export function Settings() {
@@ -135,6 +142,7 @@ export function Settings() {
         run_timeout: number("run_timeout"),
         timeout: number("timeout"),
         max_output: number("max_output"),
+        browser: { mode: value.browser_mode, jev_model: value.jev_model, jev_key: value.jev_key },
         api: {
           listen: value.listen,
         },
@@ -313,6 +321,61 @@ export function Settings() {
                     "工具输出上限(字符)",
                     "max_output",
                     "单次工具结果保留的最多字符数,超出截断。",
+                  )}
+                </div>
+              </section>
+              <section className="settings-section">
+                <div className="settings-section-title">浏览器控制</div>
+                <div className="settings-form">
+                  <label>
+                    <span>执行方式</span>
+                    <div>
+                      <select
+                        className="field-input"
+                        value={value.browser_mode}
+                        onChange={(event) => field("browser_mode", event.target.value)}
+                      >
+                        <option value="model">纯模型</option>
+                        <option value="jev">Jev</option>
+                      </select>
+                      <p className="sheet-note">
+                        纯模型逐步操作网页；Jev
+                        接收任务后连续执行，完成后由主模型检查。两种方式使用同一对话的浏览器。
+                      </p>
+                    </div>
+                  </label>
+                  {value.browser_mode === "jev" && (
+                    <>
+                      <label>
+                        <span>Jev API Key</span>
+                        <div>
+                          <input
+                            className="field-input mono"
+                            type="password"
+                            value={value.jev_key}
+                            autoComplete="off"
+                            placeholder={
+                              config.browser.jev_key_set
+                                ? "已设置，留空保持不变"
+                                : "请输入 TypeSafe API Key"
+                            }
+                            onChange={(event) => field("jev_key", event.target.value)}
+                          />
+                          <p className="sheet-note">
+                            填写网页文字时复用上方已配置的模型，无需额外文本模型 Key。
+                          </p>
+                        </div>
+                      </label>
+                      <label>
+                        <span>Jev 模型</span>
+                        <input
+                          className="field-input mono"
+                          value={value.jev_model}
+                          onChange={(event) => field("jev_model", event.target.value)}
+                          placeholder="jev-latest"
+                        />
+                      </label>
+                    </>
                   )}
                 </div>
               </section>

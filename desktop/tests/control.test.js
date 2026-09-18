@@ -132,3 +132,31 @@ test("运行绑定业务对话，所有界面请求携带归属，跨对话页�
   await assert.rejects(control.execute({ runId: "missing", method: "tabs", args: {} }), /缺少对话/);
   control.cancel("isolated");
 });
+
+test("Jev 输入使用真实点击、全选和 insertText，过期页面不产生输入", async () => {
+  const f = fixture();
+  const send = f.contents.debugger.sendCommand;
+  let stale = false;
+  f.contents.debugger.sendCommand = async (method, args) => {
+    if (method === "Runtime.evaluate") {
+      f.calls.push({ method, args });
+      return { result: { value: stale ? { stale: true } : { x: 25, y: 35 } } };
+    }
+    return send(method, args);
+  };
+  await f.execute("act", { kind: "fill", text: "Lisbon", expression: "prepareAction()" });
+  assert.equal(f.calls.filter((call) => call.method === "Input.insertText")[0].args.text, "Lisbon");
+  assert.deepEqual(f.calls.find((call) => call.args.commands)?.args.commands, ["selectAll"]);
+  const before = f.calls.filter((call) => call.method.startsWith("Input.")).length;
+  stale = true;
+  assert.deepEqual(await f.execute("act", { kind: "click", expression: "prepareAction()" }), {
+    stale: true,
+  });
+  assert.equal(f.calls.filter((call) => call.method.startsWith("Input.")).length, before);
+  f.contents.emit("before-input-event", {}, { type: "keyDown" });
+  await assert.rejects(
+    f.execute("act", { kind: "click", expression: "prepareAction()" }),
+    /browser_user_active/,
+  );
+  f.control.cancel("run");
+});

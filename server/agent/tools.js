@@ -27,6 +27,7 @@ const tools = [
     description:
       "用 JavaScript 操作桌面 App 右侧的浏览器，复用网页登录状态。code 支持 await 和 return，每次执行的变量不保留。" +
       "browser.tabs() 只返回本对话的标签 [{id,title,url,active}]；await browser.open(url) 在本对话打开标签并返回 page；browser.page(id) 只能取得本对话的标签；其他对话的网页不可访问，后台操作不切换用户当前对话。" +
+      "Jev 模式下，await page.run(instructions) 把一个具体浏览器任务交给 Jev 循环；返回 status、url、title、text、actions、usage。仅设置启用 Jev 时可用，等待完成后再调用其他操作。主模型必须核对结果，不能只相信 completed。" +
       "page.id 是标签 id。await page.evaluate(fn, argument?) 在网页隔离环境执行函数，可用 document，不能引用外层变量，参数通过 argument 传入，结果必须可 JSON 序列化。" +
       "page.goto(url)、focus()、close() 管理标签；click(x,y) 按视口坐标真实点击；press(key) 按键（Enter/Tab/Escape/ArrowDown 等单键）；type(text) 向聚焦输入框真实输入；screenshot() 截图并返回图片地址，本次最后一张截图会交给模型。以上方法都要 await。" +
       "例：const tabs = await browser.tabs(); const page = browser.page(tabs[0].id); return await page.evaluate(() => ({ title: document.title, text: document.body.innerText }));" +

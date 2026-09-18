@@ -38,6 +38,9 @@ function page(id) {
         expression: `(${fn.toString()})(${JSON.stringify(argument) ?? "undefined"})`,
       });
     },
+    run(instructions) {
+      return request("run", { id, instructions });
+    },
     goto(url) {
       return request("goto", { id, url });
     },

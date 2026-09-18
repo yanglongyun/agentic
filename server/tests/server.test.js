@@ -472,3 +472,23 @@ test("旧 cancel 重发只确认，不取消后来开始的运行", async (t) =>
     "completed",
   );
 });
+
+test("Jev 设置保存后生效，接口不回显密钥，留空保留且纯模型可切回", async (t) => {
+  const f = await fixture(t, async () => answer("完成"));
+  let response = await f.request("/api/config", "PUT", {
+    browser: { mode: "jev", jev_model: "jev-latest", jev_key: "test-jev-secret" },
+  });
+  assert.equal(response.status, 200);
+  let view = await (await f.request("/api/config")).json();
+  assert.deepEqual(view.browser, { mode: "jev", jev_model: "jev-latest", jev_key_set: true });
+  assert.doesNotMatch(JSON.stringify(view), /test-jev-secret/);
+  response = await f.request("/api/config", "PUT", { browser: { mode: "model", jev_key: "" } });
+  assert.equal(response.status, 200);
+  assert.equal(
+    JSON.parse(await fs.readFile(f.p.config, "utf8")).browser.jev_key,
+    "test-jev-secret",
+  );
+  view = await (await f.request("/api/config")).json();
+  assert.equal(view.browser.mode, "model");
+  assert.equal((await f.request("/api/config", "PUT", { browser: { mode: "auto" } })).status, 400);
+});

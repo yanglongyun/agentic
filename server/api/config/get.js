@@ -26,6 +26,11 @@ export default async function get(req, res, context) {
     run_timeout: config.run_timeout,
     timeout: config.timeout,
     max_output: config.max_output,
+    browser: {
+      mode: config.browser.mode,
+      jev_model: config.browser.jev_model,
+      jev_key_set: Boolean(config.browser.jev_key),
+    },
     api: { listen: config.api.listen },
     paths: {
       data_dir: context.paths.root,

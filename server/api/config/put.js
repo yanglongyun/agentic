@@ -19,10 +19,15 @@ export default async function put(req, res, context) {
       "timeout",
       "max_output",
       "api",
+      "browser",
     ],
     512 * 1024,
   );
-  const next = { ...context.config, api: { ...context.config.api } };
+  const next = {
+    ...context.config,
+    browser: { ...context.config.browser },
+    api: { ...context.config.api },
+  };
 
   for (const [key, value] of Object.entries(patch)) {
     switch (key) {
@@ -50,6 +55,21 @@ export default async function put(req, res, context) {
       case "timeout":
       case "max_output": {
         next[key] = value;
+        break;
+      }
+      case "browser": {
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+          fail(400, "browser 必须是对象");
+        }
+        for (const [field, setting] of Object.entries(value)) {
+          if (!["mode", "jev_model", "jev_key"].includes(field) || typeof setting !== "string") {
+            fail(400, `无效 browser 字段：${field}`);
+          }
+          if (field === "jev_key" && setting.trim() === "") {
+            continue;
+          }
+          next.browser[field] = setting.trim();
+        }
         break;
       }
       case "api": {

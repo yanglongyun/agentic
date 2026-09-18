@@ -221,7 +221,14 @@ export default async function send(request, peer, context) {
       },
     });
     // 业务层准备完整指令，Agent 只负责透传。
-    const instructions = renderPrompt(config.system, config.workdir);
+    let instructions = renderPrompt(config.system, config.workdir);
+    if (config.browser.mode === "jev") {
+      instructions +=
+        "\n\n浏览器控制模式：Jev。浏览器操作任务交给 page.run(instructions)，用清楚的自然语言说明目标、约束和完成条件；不要自己逐步编写点击脚本。先 browser.tabs() 查看本对话标签，需要时 browser.open(url)。例：const page = await browser.open('https://example.com'); return await page.run('具体任务'); 所有方法必须 await。page.run 返回后用页面正文或截图核对目标，不把 completed 当作已独立验证。遇到 blocked、超时或用户接管，向用户说明，不自行换纯模型重试。";
+    } else {
+      instructions +=
+        "\n\n浏览器控制模式：纯模型。使用 browser 工具的 JavaScript 读取页面、执行操作并验证结果。此模式不调用 page.run。";
+    }
     // 业务层组装上下文，Agent 负责循环；事件回调负责保存并转发。
     await run({
       instructions,

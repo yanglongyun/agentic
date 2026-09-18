@@ -221,6 +221,62 @@ export function setupControl({ page, send, allowedURL }) {
     state.input = true;
     try {
       switch (method) {
+        case "act": {
+          if (!["click", "fill", "select", "scroll"].includes(args.kind)) {
+            throw new Error("无效的 Jev 浏览器操作");
+          }
+          if (args.kind === "fill" && typeof args.text !== "string") {
+            throw new Error("输入内容必须是字符串");
+          }
+          // 新鲜度检查、节点解析、遮挡检查紧邻实际输入；整个任务共用用户接管状态。
+          const point = await evaluate(contents, args.expression, signal);
+          signal.throwIfAborted();
+          if (point.stale) {
+            return point;
+          }
+          if (args.kind === "select") {
+            return { ok: true };
+          }
+          if (args.kind === "scroll") {
+            await command(contents, "Input.dispatchMouseEvent", {
+              type: "mouseWheel",
+              x: point.x,
+              y: point.y,
+              deltaX: 0,
+              deltaY: args.delta,
+            });
+            return { ok: true };
+          }
+          for (const type of ["mousePressed", "mouseReleased"]) {
+            signal.throwIfAborted();
+            await command(contents, "Input.dispatchMouseEvent", {
+              type,
+              x: point.x,
+              y: point.y,
+              button: "left",
+              clickCount: 1,
+            });
+          }
+          if (args.kind === "fill") {
+            signal.throwIfAborted();
+            await command(contents, "Input.dispatchKeyEvent", {
+              type: "keyDown",
+              key: "a",
+              code: "KeyA",
+              commands: ["selectAll"],
+              modifiers: process.platform === "darwin" ? 4 : 2,
+            });
+            await command(contents, "Input.dispatchKeyEvent", {
+              type: "keyUp",
+              key: "a",
+              code: "KeyA",
+              modifiers: process.platform === "darwin" ? 4 : 2,
+            });
+            signal.throwIfAborted();
+            await command(contents, "Input.insertText", { text: args.text });
+          }
+          return { ok: true };
+        }
         case "click": {
           if (!Number.isFinite(args.x) || !Number.isFinite(args.y) || args.x < 0 || args.y < 0) {
             throw new Error("click(x,y) 需要非负视口坐标");

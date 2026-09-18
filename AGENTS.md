@@ -34,6 +34,7 @@
 
 - `desktop/` 只负责桌面窗口、本地服务生命周期和浏览器本机能力；保留 `server/` 的 Agent、API、数据库职责。
 - 浏览器界面在 `ui/src/browser/`，沿用 agentic 样式，不引入 worktop 的分屏工作区。Agent 经父子进程 IPC 调用 Electron 的浏览器能力，网页不接触后端令牌。
+- 浏览器控制支持纯模型与 Jev 模式。工具参数仍为 summary/code，Jev 使用 page.run(instructions)；循环与 API 请求放在 server/browser/jev，页面操作共用现有 IPC。文本生成复用当前模型的 Responses 接口，模型名由调用方显式传入。Jev 不设置轮数上限，停止和用户接管贯穿完整任务。
 - 浏览器标签按对话归属，切换对话切换标签集合；草稿转正保留原网页，后台操作不切换当前对话，删除对话清理标签。浏览器工具的 sessionId 由业务层经 IPC 传递，UI 与主进程核对页面归属，不由模型提供。
 - 浏览器标签持久化统一使用 `browser_pages`；前端只保留运行状态，禁止使用 localStorage 保存标签。草稿网页用空 session_id，转正通过 API 修改归属，删除对话在同一事务中删除标签。
 - 收起浏览器、切换对话/网页标签和进入设置时保留网页实例。各对话共享网页 Cookie，网页存储与聊天登录分区隔离。

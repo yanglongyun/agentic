@@ -82,7 +82,7 @@ export async function run({
       stage = "tool";
       for (const call of calls) {
         signal?.throwIfAborted();
-        const output = await runTool(call, config, signal);
+        const output = await runTool(call, config, signal, model);
         signal?.throwIfAborted();
         const item = {
           type: "function_call_output",
