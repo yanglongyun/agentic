@@ -1,12 +1,30 @@
 import { useEffect, useRef } from "react";
 import type { WebviewTag } from "electron";
-import { updateTab, useBrowser, type BrowserTab } from "./store";
+import { updateTab, findTab, type BrowserTab } from "./store";
 import { bindView } from "./views";
 import { noteVisit, reportError } from "./data";
 
-export function WebPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
+export function WebPage({
+  tab,
+  active,
+  sessionId,
+}: {
+  tab: BrowserTab;
+  active: boolean;
+  sessionId: string;
+}) {
   const host = useRef<HTMLDivElement>(null);
   const initialURL = useRef(tab.url);
+  const owner = useRef(sessionId);
+  owner.current = sessionId;
+  useEffect(() => {
+    const view = host.current?.querySelector("webview") as WebviewTag | null;
+    if (view && tab.ready) {
+      void window.agenticDesktop
+        ?.register(tab.id, view.getWebContentsId(), sessionId)
+        .catch(reportError);
+    }
+  }, [sessionId, tab.id, tab.ready]);
   useEffect(() => {
     const container = host.current;
     if (!container) {
@@ -26,13 +44,15 @@ export function WebPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
       });
     }
     function remember(visit: boolean) {
-      const current = useBrowser.getState().tabs.find((item) => item.id === tab.id);
+      const current = findTab(tab.id)?.tab;
       if (current) {
         noteVisit(view.getURL(), view.getTitle(), current.icon, visit);
       }
     }
     view.addEventListener("did-attach", () => {
-      void window.agenticDesktop?.register(tab.id, view.getWebContentsId()).catch(reportError);
+      void window.agenticDesktop
+        ?.register(tab.id, view.getWebContentsId(), owner.current)
+        .catch(reportError);
     });
     view.addEventListener("dom-ready", () => {
       updateTab(tab.id, { ready: true, error: "", zoom: Math.round(view.getZoomFactor() * 100) });
@@ -86,12 +106,12 @@ export function WebPage({ tab, active }: { tab: BrowserTab; active: boolean }) {
     bindView(tab.id, view);
     return () => {
       bindView(tab.id, null);
-      void window.agenticDesktop?.register(tab.id, null).catch(() => {});
+      void window.agenticDesktop?.register(tab.id, null, owner.current).catch(() => {});
       view.remove();
     };
   }, [tab.id]);
   return (
-    <div className={`browser-webpage${active ? " active" : ""}`}>
+    <div className={`browser-webpage${active ? " active" : ""}`} aria-hidden={!active}>
       <div className="browser-webview" ref={host} />
       {tab.error && (
         <div className="browser-page-error">

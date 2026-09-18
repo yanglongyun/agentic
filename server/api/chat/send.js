@@ -59,7 +59,12 @@ export default async function send(request, peer, context) {
   if (active.has(id)) {
     fail(409, "会话正在回复");
   }
-  const config = { ...context.config, images_dir: context.paths.images, run_images: new Set() };
+  const config = {
+    ...context.config,
+    session_id: id,
+    images_dir: context.paths.images,
+    run_images: new Set(),
+  };
   const controller = new AbortController();
   let finish;
   const done = new Promise((resolve) => {

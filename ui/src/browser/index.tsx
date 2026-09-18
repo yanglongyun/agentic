@@ -12,6 +12,10 @@ import {
   toggleBrowser,
   updateTab,
   useBrowser,
+  useBrowserGroup,
+  loadBrowserPages,
+  groupFor,
+  setBrowserOpen,
   addressURL,
 } from "./store";
 import { viewOf, navigatePage } from "./views";
@@ -27,7 +31,7 @@ import type { AuthRequest, BrowserSettings, Download } from "./desktop";
 import "./browser.css";
 
 export function BrowserButton() {
-  const open = useBrowser((state) => state.open);
+  const { open } = useBrowserGroup();
   if (!window.agenticDesktop) {
     return null;
   }
@@ -37,14 +41,15 @@ export function BrowserButton() {
       title={open ? "收起浏览器" : "打开浏览器"}
       aria-label={open ? "收起浏览器" : "打开浏览器"}
       aria-pressed={open}
-      onClick={toggleBrowser}
+      onClick={() => void loadBrowserPages().then(toggleBrowser).catch(reportError)}
     >
       <Icon name="globe" size={18} />
     </button>
   );
 }
 export function BrowserPanel() {
-  const { open, tabs, activeId } = useBrowser();
+  const { open, tabs, activeId } = useBrowserGroup();
+  const { groups, sessionId } = useBrowser();
   const width = useShell((state) => state.browserWidth);
   const location = useLocation();
   const visible = open && (location.pathname === "/" || location.pathname.startsWith("/sessions/"));
@@ -69,9 +74,13 @@ export function BrowserPanel() {
   const findInput = useRef<HTMLInputElement>(null);
   const command = useRef<(command: string, id?: string) => void>(() => {});
   const progress = downloads.find((item) => item.state === "progressing");
-  const live = tabs
-    .filter((tab) => tab.awake && tab.url !== "about:blank")
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const live = Object.entries(groups)
+    .flatMap(([owner, group]) =>
+      group.tabs
+        .filter((tab) => tab.awake && tab.url !== "about:blank")
+        .map((tab) => ({ tab, owner })),
+    )
+    .sort((a, b) => a.tab.id.localeCompare(b.tab.id));
 
   function newTab() {
     addTab();
@@ -81,7 +90,7 @@ export function BrowserPanel() {
   }
   function focusAddress() {
     if (!open) {
-      useBrowser.setState({ open: true });
+      setBrowserOpen(true);
     }
     setEditing(true);
     setDraft(active?.url === "about:blank" ? "" : active?.url || "");
@@ -229,6 +238,7 @@ export function BrowserPanel() {
       })
       .catch(reportError);
     void loadBookmarks().catch(reportError);
+    void loadBrowserPages().catch(reportError);
     const offTab = desktop.onOpenTab(({ url, background, openerId }) => {
       if (new URL(url).origin === window.location.origin) {
         toast("这是 agentic 自己的地址");
@@ -253,7 +263,11 @@ export function BrowserPanel() {
         toast(`下载完成：${item.name}`);
       }
     });
-    const offCommand = desktop.onCommand((event) => command.current(event.command, event.tabId));
+    const offCommand = desktop.onCommand((event) => {
+      void loadBrowserPages()
+        .then(() => command.current(event.command, event.tabId))
+        .catch(reportError);
+    });
     const offAuth = desktop.onAuth((request) => setAuth((items) => [...items, request]));
     const offClosed = desktop.onAuthClosed((id) =>
       setAuth((items) => items.filter((item) => item.id !== id)),
@@ -283,7 +297,7 @@ export function BrowserPanel() {
     return () => {
       viewOf(activeId)?.stopFindInPage("clearSelection");
     };
-  }, [activeId, visible]);
+  }, [activeId, visible, sessionId]);
   useEffect(() => {
     if (!menu) {
       return;
@@ -309,6 +323,7 @@ export function BrowserPanel() {
         className={`browser-panel${visible ? " visible" : ""}`}
         style={{ "--browser-width": width ? `${width}px` : undefined } as CSSProperties}
         aria-label="浏览器"
+        aria-hidden={!visible}
       >
         <Resizer target="browser" />
         <TabBar onNew={newTab} />
@@ -402,7 +417,7 @@ export function BrowserPanel() {
                   新建标签页<kbd>⌘T</kbd>
                 </button>
                 <button
-                  disabled={!useBrowser.getState().closed.length}
+                  disabled={!groupFor().closed.length}
                   onClick={() => {
                     setMenu(false);
                     reopenTab();
@@ -580,8 +595,13 @@ export function BrowserPanel() {
           </button>
         )}
         <div className="browser-viewport">
-          {live.map((tab) => (
-            <WebPage key={tab.id} tab={tab} active={tab.id === activeId} />
+          {live.map(({ tab, owner }) => (
+            <WebPage
+              key={tab.id}
+              tab={tab}
+              sessionId={owner}
+              active={owner === sessionId && tab.id === activeId}
+            />
           ))}
           {(!active || active.url === "about:blank") && (
             <NewTab onOpen={openURL} onImport={() => setPanel("import")} />

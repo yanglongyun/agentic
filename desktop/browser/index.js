@@ -15,6 +15,7 @@ export function setupBrowser(getWindow, { node, core }) {
   const browsing = session.fromPartition("persist:agentic-browser");
   const settings = loadSettings();
   const tabs = new Map();
+  const owners = new Map();
   let visible = false;
   let importing = false;
   function send(channel, data) {
@@ -36,7 +37,10 @@ export function setupBrowser(getWindow, { node, core }) {
     }
     return "";
   }
-  function page(id) {
+  function page(id, sessionId) {
+    if (sessionId !== undefined && owners.get(id) !== sessionId) {
+      throw new Error("页面不属于当前对话");
+    }
     const contentsId = tabs.get(id);
     if (!contentsId) {
       throw new Error("页面尚未加载");
@@ -77,16 +81,21 @@ export function setupBrowser(getWindow, { node, core }) {
     check(event);
     visible = value === true;
   });
-  ipcMain.handle("browser:register", (event, id, contentsId) => {
+  ipcMain.handle("browser:register", (event, id, contentsId, sessionId) => {
     check(event);
     if (contentsId === null) {
       tabs.delete(id);
+      owners.delete(id);
       return;
     }
     const contents = webContents.fromId(contentsId);
     if (!contents || contents.session !== browsing || contents.hostWebContents !== event.sender) {
       throw new Error("页面不属于当前窗口");
     }
+    if (typeof sessionId !== "string") {
+      throw new Error("缺少网页归属对话");
+    }
+    owners.set(id, sessionId);
     tabs.set(id, contentsId);
     control.track(contents);
   });
@@ -247,6 +256,7 @@ export function setupBrowser(getWindow, { node, core }) {
       const id = tabId(contents);
       if (id) {
         tabs.delete(id);
+        owners.delete(id);
       }
     });
     function allowed(url) {

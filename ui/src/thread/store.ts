@@ -1,3 +1,9 @@
+import {
+  selectBrowserSession,
+  promoteBrowserDraft,
+  removeBrowserSession,
+  loadBrowserPages,
+} from "../browser/store";
 import { create } from "zustand";
 import { api } from "../lib/api";
 import { remoteRoot } from "../lib/remote";
@@ -123,11 +129,13 @@ export function receivePacket(packet: Packet) {
   }
   if (packet.type === "connected" && remoteRoot && packet.session_id) {
     set({ currentId: packet.session_id });
+    selectBrowserSession(packet.session_id);
   }
   if (packet.type === "session.updated") {
     updateThread(packet.session as Thread);
   }
   if (packet.type === "session.deleted") {
+    removeBrowserSession(packet.session_id!);
     set((state) => ({
       threads: state.threads.filter((thread) => thread.id !== packet.session_id),
     }));
@@ -330,12 +338,14 @@ export async function openThread(id: string, force = false) {
   }
   reset();
   set({ currentId: id });
+  selectBrowserSession(id);
   selectSession(id);
 }
 export function createDraft() {
   reset();
   selectSession("");
   set((state) => ({ currentId: "", ready: true, viewSeq: state.viewSeq + 1 }));
+  selectBrowserSession("");
 }
 export async function loadOlder() {
   const { currentId, hasMore, loadingOlder, busy, generation, messages } = get();
@@ -413,15 +423,24 @@ async function submit(
   let id = get().currentId;
   try {
     if (!id) {
+      if (window.agenticDesktop) {
+        await loadBrowserPages();
+      }
+      if (get().generation !== generation) {
+        return;
+      }
       const session = await api.post<Thread>("/api/sessions");
       if (get().generation !== generation) {
         return;
       }
       id = session.id;
+      const savedPages = promoteBrowserDraft(id);
       set({ currentId: id });
+      selectBrowserSession(id);
       updateThread(session);
       selectSession(id);
       onCreated?.(id);
+      await savedPages;
     }
     const uploaded: string[] = [];
     for (const image of images) {
@@ -496,6 +515,7 @@ export async function renameThread(id: string, title: string) {
 export async function removeThread(id: string) {
   try {
     await api.del(url(id));
+    removeBrowserSession(id);
     set((state) => ({ threads: state.threads.filter((thread) => thread.id !== id) }));
     if (get().currentId === id) {
       createDraft();

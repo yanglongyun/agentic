@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { api } from "../lib/api";
+import { reportError } from "./data";
 
 export interface BrowserTab {
   id: string;
@@ -21,12 +23,18 @@ interface SavedTab {
   title: string;
   icon: string;
 }
-interface BrowserState {
+interface BrowserGroup {
   open: boolean;
   tabs: BrowserTab[];
   activeId: string;
   closed: { tab: SavedTab; index: number }[];
 }
+interface BrowserState {
+  ready: boolean;
+  sessionId: string;
+  groups: Record<string, BrowserGroup>;
+}
+const emptyGroup: BrowserGroup = { open: false, tabs: [], activeId: "", closed: [] };
 function runtime(tab: SavedTab): BrowserTab {
   return {
     ...tab,
@@ -64,39 +72,135 @@ export function addressURL(
   }
   return search.replace("{query}", encodeURIComponent(text));
 }
-const initial: BrowserState = { open: false, tabs: [], activeId: "", closed: [] };
-try {
-  const raw = localStorage.getItem("agentic.browser.tabs");
-  if (raw) {
-    const saved = JSON.parse(raw);
-    initial.open = saved.open === true;
-    initial.tabs = saved.tabs.map((tab: SavedTab) => runtime(tab));
-    initial.activeId = saved.activeId;
-    const active = initial.tabs.find((tab) => tab.id === initial.activeId);
-    if (active) {
-      active.awake = active.url !== "about:blank";
+interface PageRecord extends SavedTab {
+  session_id: string;
+  position: number;
+  active: number;
+}
+export const useBrowser = create<BrowserState>(() => ({ ready: false, sessionId: "", groups: {} }));
+let loading: Promise<void> | undefined;
+let saving: Promise<void> = Promise.resolve();
+
+// 按发起顺序保存，避免导航、排序、关闭的请求乱序覆盖数据库。
+function enqueueSave(write: () => Promise<unknown>): Promise<void> {
+  saving = saving
+    .catch(() => {})
+    .then(write)
+    .then(() => {});
+  void saving.catch(reportError);
+  return saving;
+}
+export function flushBrowserPages() {
+  return saving;
+}
+export function loadBrowserPages(): Promise<void> {
+  if (useBrowser.getState().ready) {
+    return Promise.resolve();
+  }
+  if (loading) {
+    return loading;
+  }
+  loading = api
+    .get<{ pages: PageRecord[] }>("/api/browser/pages")
+    .then(({ pages }) => {
+      const groups: Record<string, BrowserGroup> = {};
+      for (const page of pages) {
+        let group = groups[page.session_id];
+        if (!group) {
+          group = { open: true, tabs: [], activeId: "", closed: [] };
+          groups[page.session_id] = group;
+        }
+        group.tabs.push(
+          runtime({ id: page.id, url: page.url, title: page.title, icon: page.icon }),
+        );
+        if (page.active) {
+          group.activeId = page.id;
+        }
+      }
+      const current = groups[useBrowser.getState().sessionId];
+      const active = current?.tabs.find((tab) => tab.id === current.activeId);
+      if (active) {
+        active.awake = active.url !== "about:blank";
+      }
+      useBrowser.setState({ groups, ready: true });
+    })
+    .finally(() => {
+      loading = undefined;
+    });
+  return loading;
+}
+export function groupFor(sessionId = useBrowser.getState().sessionId): BrowserGroup {
+  return useBrowser.getState().groups[sessionId] || emptyGroup;
+}
+export function useBrowserGroup() {
+  return useBrowser((state) => state.groups[state.sessionId] || emptyGroup);
+}
+function saveGroup(sessionId: string, group: BrowserGroup) {
+  useBrowser.setState((state) => ({ groups: { ...state.groups, [sessionId]: group } }));
+  savePages(sessionId);
+}
+function savePages(sessionId: string) {
+  const group = groupFor(sessionId);
+  const pages = group.tabs.map(({ id, url, title, icon }) => ({
+    id,
+    url,
+    title,
+    icon,
+    active: id === group.activeId,
+  }));
+  return enqueueSave(() => api.put("/api/browser/pages", { session_id: sessionId, pages }));
+}
+export function selectBrowserSession(sessionId: string) {
+  useBrowser.setState({ sessionId });
+  const group = groupFor(sessionId);
+  if (group.activeId) {
+    activateTab(group.activeId);
+  }
+}
+export function promoteBrowserDraft(sessionId: string): Promise<void> {
+  const state = useBrowser.getState();
+  if (!state.groups[""]) {
+    return Promise.resolve();
+  }
+  // 先排入草稿的最终记录，再变更归属；网页仍使用原来的稳定 ID。
+  savePages("");
+  const groups = { ...state.groups, [sessionId]: state.groups[""] };
+  delete groups[""];
+  useBrowser.setState({ groups });
+  return enqueueSave(() => api.post("/api/browser/pages/claim", { session_id: sessionId }));
+}
+export function removeBrowserSession(sessionId: string) {
+  const groups = { ...useBrowser.getState().groups };
+  delete groups[sessionId];
+  useBrowser.setState({ groups });
+}
+export function findTab(id: string) {
+  for (const [sessionId, group] of Object.entries(useBrowser.getState().groups)) {
+    const tab = group.tabs.find((item) => item.id === id);
+    if (tab) {
+      return { sessionId, group, tab };
     }
   }
-} catch {
-  /* 本地记录损坏时从空白面板开始，不影响聊天数据。 */
 }
-export const useBrowser = create<BrowserState>(() => initial);
-export function saveTabs() {
-  const { open, tabs, activeId } = useBrowser.getState();
-  try {
-    localStorage.setItem(
-      "agentic.browser.tabs",
-      JSON.stringify({
-        open,
-        activeId,
-        tabs: tabs.map(({ id, url, title, icon }) => ({ id, url, title, icon })),
-      }),
-    );
-  } catch {
-    /* 存储不可用时仍可以浏览。 */
+export function setBrowserOpen(open: boolean, sessionId = useBrowser.getState().sessionId) {
+  useBrowser.setState((state) => ({
+    groups: { ...state.groups, [sessionId]: { ...groupFor(sessionId), open } },
+  }));
+}
+export function addTab(
+  url = "about:blank",
+  background = false,
+  openerId?: string,
+  sessionId = useBrowser.getState().sessionId,
+) {
+  // 弹出的网页跟随来源标签，即使用户已经切换到别的对话。
+  if (openerId) {
+    const opener = findTab(openerId);
+    if (!opener) {
+      throw new Error("来源标签已关闭");
+    }
+    sessionId = opener.sessionId;
   }
-}
-export function addTab(url = "about:blank", background = false, openerId?: string) {
   const tab = runtime({
     id: crypto.randomUUID(),
     url,
@@ -104,82 +208,102 @@ export function addTab(url = "about:blank", background = false, openerId?: strin
     icon: "",
   });
   tab.awake = url !== "about:blank";
-  useBrowser.setState((state) => {
-    const tabs = state.tabs.slice();
-    const source = tabs.findIndex((item) => item.id === openerId);
-    tabs.splice(source < 0 ? tabs.length : source + 1, 0, tab);
-    return { open: true, tabs, activeId: background && state.activeId ? state.activeId : tab.id };
+  const group = groupFor(sessionId);
+  const tabs = group.tabs.slice();
+  const source = tabs.findIndex((item) => item.id === openerId);
+  tabs.splice(source < 0 ? tabs.length : source + 1, 0, tab);
+  saveGroup(sessionId, {
+    ...group,
+    open: true,
+    tabs,
+    activeId: background && group.activeId ? group.activeId : tab.id,
   });
-  saveTabs();
   return tab.id;
 }
 export function activateTab(id: string) {
-  useBrowser.setState((state) => ({
+  const found = findTab(id);
+  if (!found) {
+    return;
+  }
+  saveGroup(found.sessionId, {
+    ...found.group,
     activeId: id,
-    tabs: state.tabs.map((tab) =>
+    tabs: found.group.tabs.map((tab) =>
       tab.id === id ? { ...tab, awake: tab.url !== "about:blank" } : tab,
     ),
-  }));
-  saveTabs();
+  });
 }
 export function toggleBrowser() {
-  const state = useBrowser.getState();
-  if (!state.open && !state.tabs.length) {
+  const group = groupFor();
+  if (!group.open && !group.tabs.length) {
     addTab();
   } else {
-    useBrowser.setState({ open: !state.open });
-    saveTabs();
+    setBrowserOpen(!group.open);
   }
 }
 export function closeTab(id: string) {
-  useBrowser.setState((state) => {
-    const index = state.tabs.findIndex((tab) => tab.id === id);
-    if (index < 0) {
-      return state;
-    }
-    const tab = state.tabs[index];
-    let tabs = state.tabs.filter((item) => item.id !== id);
-    const activeId =
-      state.activeId === id ? tabs[Math.min(index, tabs.length - 1)]?.id || "" : state.activeId;
-    tabs = tabs.map((item) =>
-      item.id === activeId ? { ...item, awake: item.url !== "about:blank" } : item,
-    );
-    return {
-      tabs,
-      activeId,
-      closed: [
-        ...state.closed,
-        { tab: { id: tab.id, url: tab.url, title: tab.title, icon: tab.icon }, index },
-      ],
-    };
+  const found = findTab(id);
+  if (!found) {
+    return;
+  }
+  const { group, tab, sessionId } = found;
+  const index = group.tabs.findIndex((item) => item.id === id);
+  let tabs = group.tabs.filter((item) => item.id !== id);
+  const activeId =
+    group.activeId === id ? tabs[Math.min(index, tabs.length - 1)]?.id || "" : group.activeId;
+  tabs = tabs.map((item) =>
+    item.id === activeId ? { ...item, awake: item.url !== "about:blank" } : item,
+  );
+  saveGroup(sessionId, {
+    ...group,
+    tabs,
+    activeId,
+    closed: [
+      ...group.closed,
+      { tab: { id: tab.id, url: tab.url, title: tab.title, icon: tab.icon }, index },
+    ],
   });
-  saveTabs();
 }
 export function reopenTab() {
   const state = useBrowser.getState();
-  const saved = state.closed.at(-1);
+  const group = groupFor();
+  const saved = group.closed.at(-1);
   if (!saved) {
     return;
   }
-  const tabs = state.tabs.slice();
+  const tabs = group.tabs.slice();
   const tab = runtime(saved.tab);
   tab.awake = tab.url !== "about:blank";
   tabs.splice(saved.index, 0, tab);
-  useBrowser.setState({ tabs, activeId: tab.id, open: true, closed: state.closed.slice(0, -1) });
-  saveTabs();
+  saveGroup(state.sessionId, {
+    ...group,
+    tabs,
+    activeId: tab.id,
+    open: true,
+    closed: group.closed.slice(0, -1),
+  });
 }
 export function reorderTabs(from: number, to: number) {
-  const tabs = useBrowser.getState().tabs.slice();
+  const group = groupFor();
+  const tabs = group.tabs.slice();
   const [tab] = tabs.splice(from, 1);
+  if (!tab) {
+    return;
+  }
   tabs.splice(to, 0, tab);
-  useBrowser.setState({ tabs });
-  saveTabs();
+  saveGroup(useBrowser.getState().sessionId, { ...group, tabs });
 }
 export function updateTab(id: string, patch: Partial<BrowserTab>) {
-  useBrowser.setState((state) => ({
-    tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)),
-  }));
+  const found = findTab(id);
+  if (!found) {
+    return;
+  }
+  const group = {
+    ...found.group,
+    tabs: found.group.tabs.map((tab) => (tab.id === id ? { ...tab, ...patch } : tab)),
+  };
+  useBrowser.setState((state) => ({ groups: { ...state.groups, [found.sessionId]: group } }));
   if ("url" in patch || "title" in patch || "icon" in patch) {
-    saveTabs();
+    savePages(found.sessionId);
   }
 }

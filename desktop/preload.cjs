@@ -44,8 +44,8 @@ contextBridge.exposeInMainWorld("agenticDesktop", {
   visible(value) {
     return ipcRenderer.invoke("browser:visible", value);
   },
-  register(id, contentsId) {
-    return ipcRenderer.invoke("browser:register", id, contentsId);
+  register(id, contentsId, sessionId) {
+    return ipcRenderer.invoke("browser:register", id, contentsId, sessionId);
   },
   openExternal(url) {
     return ipcRenderer.invoke("browser:open-external", url);

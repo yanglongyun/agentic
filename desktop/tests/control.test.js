@@ -43,7 +43,12 @@ function fixture() {
     },
   });
   function execute(method, args = {}) {
-    return control.execute({ runId: "run", method, args: { id: "page", ...args } });
+    return control.execute({
+      runId: "run",
+      sessionId: "session-test",
+      method,
+      args: { id: "page", ...args },
+    });
   }
   return { control, contents, execute, calls };
 }
@@ -89,4 +94,41 @@ test("无效 URL 在打开标签前拒绝，键鼠参数不接受非法数据", 
   await assert.rejects(f.execute("click", { x: -1, y: 20 }), /坐标/);
   await assert.rejects(f.execute("press", { key: "unknown" }), /不支持按键/);
   f.control.cancel("run");
+});
+
+test("运行绑定业务对话，所有界面请求携带归属，跨对话页面在原生操作前拒绝", async () => {
+  const requests = [];
+  let touched = false;
+  const control = setupControl({
+    page() {
+      touched = true;
+      throw new Error("不应访问页面");
+    },
+    allowedURL() {
+      return true;
+    },
+    send(_channel, message) {
+      requests.push(message);
+      queueMicrotask(() => control.receive({ id: message.id, error: "标签不属于当前对话" }));
+    },
+  });
+  for (const method of ["evaluate", "click", "screenshot", "goto", "close", "focus"]) {
+    await assert.rejects(
+      control.execute({
+        runId: "isolated",
+        sessionId: "a",
+        method,
+        args: { id: "b-page", url: "https://example.com" },
+      }),
+      /不属于当前对话/,
+    );
+  }
+  assert.equal(touched, false);
+  assert.ok(requests.every((request) => request.sessionId === "a"));
+  await assert.rejects(
+    control.execute({ runId: "isolated", sessionId: "b", method: "tabs", args: {} }),
+    /不能切换对话/,
+  );
+  await assert.rejects(control.execute({ runId: "missing", method: "tabs", args: {} }), /缺少对话/);
+  control.cancel("isolated");
 });

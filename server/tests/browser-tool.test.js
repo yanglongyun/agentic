@@ -32,9 +32,9 @@ async function fixture(t, respond) {
     await exited;
     await fs.rm(directory, { recursive: true, force: true });
   });
-  function run(code, id = randomUUID()) {
+  function run(code, id = randomUUID(), sessionId = "session-test") {
     const result = new Promise((resolve) => waiting.set(id, resolve));
-    child.send({ type: "test:run", id, code, directory });
+    child.send({ type: "test:run", id, code, directory, sessionId });
     return result;
   }
   return { run, child, directory };
@@ -64,6 +64,7 @@ test(
       ["tabs", "evaluate"],
     );
     assert.equal(calls[0].runId, calls[1].runId);
+    assert.ok(calls.every((call) => call.sessionId === "session-test"));
   },
 );
 
@@ -133,4 +134,26 @@ test("没有桌面桥时明确返回不可用", async () => {
   );
   assert.equal(result.failed, true);
   assert.match(result.text, /桌面 App/);
+});
+
+test("不同对话可同时执行脚本，各自的 IPC 保持业务归属", { timeout: 10000 }, async (t) => {
+  const requests = [];
+  let ready;
+  const both = new Promise((resolve) => {
+    ready = resolve;
+  });
+  const f = await fixture(t, async (request) => {
+    requests.push(request);
+    if (requests.length === 2) {
+      ready();
+    }
+    await both;
+    return { result: [{ id: request.sessionId }] };
+  });
+  const [a, b] = await Promise.all([
+    f.run("return await browser.tabs();", "a-run", "a"),
+    f.run("return await browser.tabs();", "b-run", "b"),
+  ]);
+  assert.deepEqual(JSON.parse(a.result.text), [{ id: "a" }]);
+  assert.deepEqual(JSON.parse(b.result.text), [{ id: "b" }]);
 });

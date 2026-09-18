@@ -10,7 +10,12 @@ process.on("message", async (message) => {
   }
   const controller = new AbortController();
   controllers.set(message.id, controller);
-  const config = { images_dir: message.directory, max_output: 2000, run_images: new Set() };
+  const config = {
+    session_id: message.sessionId || "session-test",
+    images_dir: message.directory,
+    max_output: 2000,
+    run_images: new Set(),
+  };
   try {
     const result = await runTool(
       { name: "browser", arguments: JSON.stringify({ summary: "测试", code: message.code }) },

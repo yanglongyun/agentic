@@ -8,10 +8,10 @@ import {
 import { Icon } from "../icons/Icon";
 import { PageIcon } from "./PageIcon";
 import { reportError } from "./data";
-import { useBrowser, activateTab, closeTab, reorderTabs, reopenTab } from "./store";
+import { useBrowserGroup, activateTab, closeTab, reorderTabs, reopenTab } from "./store";
 
 export function TabBar({ onNew }: { onNew: () => void }) {
-  const { tabs, activeId, closed } = useBrowser();
+  const { tabs, activeId, closed } = useBrowserGroup();
   const bar = useRef<HTMLDivElement>(null);
   const cleanup = useRef<(() => void) | null>(null);
   const dragged = useRef(false);

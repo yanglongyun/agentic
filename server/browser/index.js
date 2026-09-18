@@ -2,21 +2,25 @@ import { Worker } from "node:worker_threads";
 import { randomUUID } from "node:crypto";
 import { saveImage } from "../images.js";
 
-let running = false;
+const running = new Set();
 
 export async function execute(code, config, signal) {
   signal?.throwIfAborted();
   if (!process.connected) {
     throw new Error("浏览器工具需要在 agentic 桌面 App 中使用");
   }
-  if (running) {
-    throw new Error("另一个浏览器脚本正在执行，请等它结束后重试");
+  const sessionId = config.session_id;
+  if (typeof sessionId !== "string" || !sessionId) {
+    throw new Error("浏览器工具缺少对话 ID");
+  }
+  if (running.has(sessionId)) {
+    throw new Error("当前对话的另一个浏览器脚本正在执行，请等它结束后重试");
   }
   const runId = randomUUID();
   const controller = new AbortController();
   const stopped = AbortSignal.any([controller.signal, ...(signal ? [signal] : [])]);
   const worker = new Worker(new URL("./worker.js", import.meta.url), { workerData: { code } });
-  running = true;
+  running.add(sessionId);
   let imageURL;
   let closed = false;
   const timer = setTimeout(
@@ -71,7 +75,7 @@ export async function execute(code, config, signal) {
           return;
         }
         if (message.type === "request") {
-          process.send({ ...message, type: "browser:request", runId }, (error) => {
+          process.send({ ...message, type: "browser:request", runId, sessionId }, (error) => {
             if (error) {
               reject(error);
             }
@@ -99,6 +103,6 @@ export async function execute(code, config, signal) {
       process.send({ type: "browser:cancel", runId }, () => {});
     }
     await worker.terminate();
-    running = false;
+    running.delete(sessionId);
   }
 }

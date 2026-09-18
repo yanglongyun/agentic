@@ -3,6 +3,18 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 const ddl = `
+CREATE TABLE IF NOT EXISTS browser_pages (
+  id TEXT PRIMARY KEY,
+  session_id TEXT,
+  url TEXT,
+  title TEXT,
+  icon TEXT,
+  position INTEGER,
+  active INTEGER,
+  created_at INTEGER,
+  updated_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_browser_pages_session ON browser_pages(session_id, position);
 CREATE TABLE IF NOT EXISTS browser_bookmarks (
   id TEXT PRIMARY KEY,
   parent_id TEXT,

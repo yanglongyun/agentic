@@ -15,6 +15,7 @@ export interface ComputerState {
   shortcut: boolean;
 }
 export interface BrowserToolRequest {
+  sessionId: string;
   id: string;
   method: string;
   args: { id?: string; url?: string };
@@ -57,7 +58,7 @@ declare global {
         importSupported: boolean;
       }>;
       visible(value: boolean): Promise<void>;
-      register(id: string, contentsId: number | null): Promise<void>;
+      register(id: string, contentsId: number | null, sessionId: string): Promise<void>;
       openExternal(url: string): Promise<void>;
       downloadAction(
         action: "cancel" | "reveal" | "clear",

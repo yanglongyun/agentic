@@ -3,8 +3,11 @@
   background: var(--accent-soft);
 }
 .browser-panel {
-  position: relative;
-  display: none;
+  position: fixed;
+  left: -10000px;
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
   width: var(--browser-width, clamp(380px, 43vw, 680px));
   min-width: 320px;
   flex-shrink: 1;
@@ -15,7 +18,10 @@
   background: var(--surface);
 }
 .browser-panel.visible {
-  display: flex;
+  position: relative;
+  left: auto;
+  opacity: 1;
+  pointer-events: auto;
 }
 @media (min-width: 641px) {
   .thread {
@@ -363,10 +369,14 @@
 .browser-webpage {
   position: absolute;
   inset: 0;
-  display: none;
-}
-.browser-webpage.active {
   display: flex;
+  /* 保留网页绘制，后台截图才能包含完整控件。 */
+  opacity: 0;
+  pointer-events: none;
+}
+.browser-panel.visible .browser-webpage.active {
+  opacity: 1;
+  pointer-events: auto;
 }
 .browser-webview {
   display: flex;

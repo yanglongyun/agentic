@@ -32,6 +32,7 @@ export default async function remove(req, res, context, id) {
   try {
     db.prepare("DELETE FROM messages WHERE session_id = ?").run(id);
     db.prepare("DELETE FROM compactions WHERE session_id = ?").run(id);
+    db.prepare("DELETE FROM browser_pages WHERE session_id = ?").run(id);
     db.prepare("DELETE FROM sessions WHERE id = ?").run(id);
     db.prepare("DELETE FROM remote_sessions WHERE session_id = ?").run(id);
     db.prepare("DELETE FROM chat_requests WHERE session_id = ?").run(id);

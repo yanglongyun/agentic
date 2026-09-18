@@ -26,7 +26,15 @@ async function fixture(t) {
     });
     return { status: response.status, body: await response.json() };
   }
-  return { request, origin };
+  async function sessionRequest(route = "", method = "POST") {
+    const response = await fetch(origin + "/api/sessions" + route, {
+      method,
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: method === "POST" ? "{}" : undefined,
+    });
+    return { status: response.status, body: await response.json() };
+  }
+  return { request, origin, sessionRequest, runtime };
 }
 test("浏览器接口要求登录；目录、书签、重命名与递归删除", async (t) => {
   const { request, origin } = await fixture(t);
@@ -122,4 +130,82 @@ test("历史区分访问与元数据更新，支持搜索、分页和删除", as
   assert.equal((await request("/history")).body.total, 1);
   await request("/history", "DELETE");
   assert.equal((await request("/history")).body.total, 0);
+});
+
+test("标签按对话持久化，排序、选中、关闭原子保存，拒绝跨对话抢占", async (t) => {
+  const { request, origin, sessionRequest, runtime } = await fixture(t);
+  assert.equal((await fetch(origin + "/api/browser/pages")).status, 401);
+  const a = (await sessionRequest()).body.id;
+  const b = (await sessionRequest()).body.id;
+  const first = { id: "first", url: "https://example.com/1", title: "一", icon: "", active: true };
+  const second = { ...first, id: "second", url: "https://example.com/2", active: false };
+  assert.equal(
+    (await request("/pages", "PUT", { session_id: a, pages: [first, second] })).status,
+    200,
+  );
+  const original = (await request(`/pages?session_id=${a}`)).body.pages;
+  assert.deepEqual(
+    original.map((page) => [page.id, page.position, page.active]),
+    [
+      ["first", 0, 1],
+      ["second", 1, 0],
+    ],
+  );
+  assert.equal((await request("/pages", "PUT", { session_id: b, pages: [first] })).status, 409);
+  assert.equal(
+    (await request("/pages", "PUT", { session_id: a, pages: [first, first] })).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request("/pages", "PUT", {
+        session_id: a,
+        pages: [{ ...first, url: "javascript:alert(1)" }],
+      })
+    ).status,
+    400,
+  );
+  assert.deepEqual((await request(`/pages?session_id=${a}`)).body.pages, original);
+  await request("/pages", "PUT", {
+    session_id: a,
+    pages: [
+      { ...second, active: true },
+      { ...first, title: "改名", active: false },
+    ],
+  });
+  const changed = (await request(`/pages?session_id=${a}`)).body.pages;
+  assert.deepEqual(
+    changed.map((page) => page.id),
+    ["second", "first"],
+  );
+  assert.equal(changed[1].created_at, original[0].created_at);
+  assert.equal(changed[1].title, "改名");
+  await request("/pages", "PUT", { session_id: a, pages: [first] });
+  assert.equal(
+    runtime.db.prepare("SELECT COUNT(*) AS n FROM browser_pages WHERE session_id = ?").get(a).n,
+    1,
+  );
+  await request("/pages", "PUT", { session_id: b, pages: [{ ...second, active: true }] });
+  assert.equal((await sessionRequest(`/${a}`, "DELETE")).status, 200);
+  assert.deepEqual((await request(`/pages?session_id=${a}`)).body.pages, []);
+  assert.equal((await request(`/pages?session_id=${b}`)).body.pages.length, 1);
+  assert.equal((await request("/pages", "PUT", { session_id: a, pages: [first] })).status, 404);
+});
+
+test("草稿标签落库，转正式会话保留 ID 和创建时间；关闭全部后为空", async (t) => {
+  const { request, sessionRequest } = await fixture(t);
+  const page = { id: "draft-page", url: "about:blank", title: "新标签页", icon: "", active: true };
+  await request("/pages", "PUT", { session_id: "", pages: [page] });
+  const before = (await request("/pages?session_id=")).body.pages[0];
+  assert.equal((await request("/pages/claim", "POST", { session_id: "missing" })).status, 404);
+  const session_id = (await sessionRequest()).body.id;
+  assert.equal((await request("/pages/claim", "POST", { session_id })).status, 200);
+  assert.deepEqual((await request("/pages?session_id=")).body.pages, []);
+  const saved = (await request(`/pages?session_id=${session_id}`)).body.pages[0];
+  assert.equal(saved.id, before.id);
+  assert.equal(saved.created_at, before.created_at);
+  assert.equal(saved.active, 1);
+  assert.equal((await request("/pages/claim", "POST", { session_id })).status, 409);
+  await request("/pages", "PUT", { session_id, pages: [] });
+  assert.deepEqual((await request("/pages")).body.pages, []);
 });

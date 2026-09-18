@@ -1,6 +1,7 @@
 // Agent 的浏览器命令只访问已登记的网页标签，不访问宿主聊天页面。
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
+import electron from "electron";
 
 const keys = {
   Enter: ["Enter", 13],
@@ -62,7 +63,8 @@ export function setupControl({ page, send, allowedURL }) {
     return state;
   }
 
-  function ask(method, args, signal) {
+  function ask(method, args, run) {
+    const signal = run.controller.signal;
     signal.throwIfAborted();
     const id = randomUUID();
     return new Promise((resolve, reject) => {
@@ -82,7 +84,7 @@ export function setupControl({ page, send, allowedURL }) {
       const timer = setTimeout(() => finish(new Error("浏览器界面没有响应")), 10000);
       pending.set(id, finish);
       signal.addEventListener("abort", abort, { once: true });
-      send("browser:tool-request", { id, method, args });
+      send("browser:tool-request", { id, method, args, sessionId: run.sessionId });
     });
   }
   function receive(message) {
@@ -92,13 +94,13 @@ export function setupControl({ page, send, allowedURL }) {
     }
   }
   async function target(id, run) {
-    await ask("wake", { id }, run.controller.signal);
+    await ask("wake", { id }, run);
     const deadline = Date.now() + 15000;
     while (true) {
       run.controller.signal.throwIfAborted();
       let contents;
       try {
-        contents = page(id);
+        contents = page(id, run.sessionId);
       } catch {
         /* 新标签等待 webview 登记。 */
       }
@@ -160,7 +162,7 @@ export function setupControl({ page, send, allowedURL }) {
     const signal = run.controller.signal;
     signal.throwIfAborted();
     if (method === "tabs") {
-      return ask("tabs", {}, signal);
+      return ask("tabs", {}, run);
     }
     if (method === "open" || method === "goto") {
       if (typeof args.url !== "string" || !allowedURL(args.url)) {
@@ -168,15 +170,16 @@ export function setupControl({ page, send, allowedURL }) {
       }
     }
     if (method === "open") {
-      const tab = await ask("open", args, signal);
+      const tab = await ask("open", args, run);
       await target(tab.id, run);
       return tab;
     }
     if (method === "goto" || method === "focus" || method === "close") {
+      await ask("check", { id: args.id }, run);
       // 空白或休眠标签也可以导航、切换和关闭，不要求先有网页实例。
       let existing;
       try {
-        existing = page(args.id);
+        existing = page(args.id, run.sessionId);
       } catch {
         /* 界面会核对标签是否存在。 */
       }
@@ -186,7 +189,7 @@ export function setupControl({ page, send, allowedURL }) {
         }
         run.pages.add(existing);
       }
-      const result = await ask(method, args, signal);
+      const result = await ask(method, args, run);
       if (method === "goto") {
         await target(args.id, run);
       }
@@ -198,11 +201,17 @@ export function setupControl({ page, send, allowedURL }) {
       return evaluate(contents, args.expression, signal);
     }
     if (method === "screenshot") {
-      await ask("focus", { id: args.id }, signal);
-      const image = await contents.capturePage();
+      await ask("focus", { id: args.id }, run);
+      // Chromium 直接绘制截图，避免后台 webview 的控件图层缺失。
+      const { data } = await command(contents, "Page.captureScreenshot", {
+        format: "png",
+        fromSurface: true,
+        captureBeyondViewport: false,
+      });
+      const image = electron.nativeImage.createFromDataURL(`data:image/png;base64,${data}`);
       const size = image.getSize();
       return {
-        png: image.toPNG().toString("base64"),
+        png: data,
         width: size.width,
         height: size.height,
         url: contents.getURL(),
@@ -252,10 +261,21 @@ export function setupControl({ page, send, allowedURL }) {
     }
   }
   function execute(message) {
+    if (typeof message.sessionId !== "string" || !message.sessionId) {
+      return Promise.reject(new Error("浏览器工具缺少对话 ID"));
+    }
     let run = runs.get(message.runId);
     if (!run) {
-      run = { controller: new AbortController(), pages: new Set(), queue: Promise.resolve() };
+      run = {
+        sessionId: message.sessionId,
+        controller: new AbortController(),
+        pages: new Set(),
+        queue: Promise.resolve(),
+      };
       runs.set(message.runId, run);
+    }
+    if (run.sessionId !== message.sessionId) {
+      return Promise.reject(new Error("浏览器运行不能切换对话"));
     }
     // 即使脚本使用 Promise.all，同一次执行里的网页操作也按提交顺序执行。
     const result = run.queue.then(() => perform(message.method, message.args, run));
