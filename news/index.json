@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "export-markdown",
+      "date": "2026-10-28",
+      "title": "把对话导出成 Markdown",
+      "summary": "对话列表每一行的「更多」菜单里多一个「导出为 Markdown」，把整段对话（你说的和它答的）存成一个 .md 文件。",
+      "guide": "export-markdown.md"
+    }
+  ]
+}

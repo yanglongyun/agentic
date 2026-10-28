@@ -1,0 +1,176 @@
+// 桌面壳:Electron 主进程。只做宿主该做的事 —— 窗口、通知、对话框、全局快捷键、菜单栏图标(打开 / 退出)——
+// 其余交给 launcher/core.js(纯 Node)。宿主能力以 capabilities 交给 launcher,应用用 agentic.call 调。
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { launcherPaths } from '../launcher/paths.js';
+import * as seed from '../launcher/seed.js';
+import { createLauncher, createLog } from '../launcher/core.js';
+import { registerHost } from '../launcher/register-host.js';
+import { createSurfaces } from './surface.js';
+
+const paths = launcherPaths();
+const dev = !app.isPackaged;
+const root = path.resolve(import.meta.dirname, '..');
+// 开发时(npm run app)仓库里的 app/ 就是 seed;打包后 seed 在 resources/seed
+const seedDir = process.env.AGENTIC_SEED || (dev ? path.join(root, 'app') : path.join(process.resourcesPath, 'seed'));
+const version = seed.readSeedVersion(seedDir, app.getVersion());
+// 界面编译工具链(esbuild、React):开发时就是仓库的 node_modules;打包后在 resources/toolchain(真实目录,不在 asar 里)
+const toolchain = dev ? path.join(root, 'node_modules') : path.join(process.resourcesPath, 'toolchain', 'node_modules');
+// 浏览器插件:开发时是仓库里的 extension/,打包后在 resources/extension;用户在浏览器里「加载已解压的扩展程序」选它
+const extensionDir = dev ? path.join(root, 'extension') : path.join(process.resourcesPath, 'extension');
+
+// 指定了 AGENTIC_HOME(开发、测试)时,Electron 自己的 userData 也挪进去:不同的 AGENTIC_HOME 才能同时开着
+if (process.env.AGENTIC_HOME) app.setPath('userData', path.join(paths.base, 'electron'));
+
+let tray = null;
+
+function main() {
+    // 单实例:第二次点图标,回到已经开着的那个
+    if (!app.requestSingleInstanceLock()) { app.quit(); return; }
+    fs.mkdirSync(paths.state, { recursive: true });
+    const log = createLog(paths.log);
+    let core = null;
+    const surfaces = createSurfaces({ log, onClosed: (id) => core?.emit('window.closed', { id }) });
+
+    const host = {
+        kind: 'desktop',
+        whenReady: () => app.whenReady(),
+        openSurface: (url, window) => surfaces.open(url, window),
+        reloadSurfaces: () => surfaces.reload(),
+        relaunch: () => {
+            app.relaunch();
+            // 正常退出走 before-quit 收尾;卡住了就强退
+            setTimeout(() => app.exit(0), 5000).unref();
+            quitting = true;
+            app.quit();
+        },
+        fatal: async (message) => {
+            const { response } = await dialog.showMessageBox({ type: 'error', message: 'agentic 起不来了', detail: message, buttons: ['退出', '打开数据目录'], defaultId: 0 });
+            if (response === 1) await shell.openPath(paths.base);
+            quitting = true;
+            app.quit();
+        },
+    };
+
+    /** 宿主给应用的能力。参数都是普通对象,返回值能 JSON 化。 */
+    const capabilities = {
+        'window.open': async (args) => ({ id: await surfaces.openWindow(args) }),
+        'window.close': async ({ id }) => { surfaces.closeWindow(id); return { ok: true }; },
+        'window.focus': async ({ id }) => { surfaces.focusWindow(id); return { ok: true }; },
+        'window.list': async () => ({ windows: surfaces.listWindows() }),
+        notify: async ({ title, body }) => {
+            if (!Notification.isSupported()) throw new Error('这台机器不支持系统通知');
+            new Notification({ title: String(title || 'agentic').slice(0, 100), body: String(body || '').slice(0, 500) }).show();
+            return { ok: true };
+        },
+        'dialog.open': async ({ title, directory, multiple, filters } = {}) => {
+            const properties = [directory ? 'openDirectory' : 'openFile'];
+            if (multiple) properties.push('multiSelections');
+            const result = await dialog.showOpenDialog(surfaces.main() || undefined, { title, properties, filters });
+            return { paths: result.canceled ? [] : result.filePaths };
+        },
+        'dialog.save': async ({ title, defaultPath, filters } = {}) => {
+            const result = await dialog.showSaveDialog(surfaces.main() || undefined, { title, defaultPath, filters });
+            return { path: result.canceled ? null : result.filePath };
+        },
+        'dialog.message': async ({ type, message, detail, buttons } = {}) => {
+            const result = await dialog.showMessageBox(surfaces.main() || undefined, {
+                type: ['info', 'warning', 'error', 'question'].includes(type) ? type : 'info',
+                message: String(message || ''), detail: detail ? String(detail) : undefined,
+                buttons: Array.isArray(buttons) && buttons.length ? buttons.map(String).slice(0, 6) : ['好'],
+            });
+            return { response: result.response };
+        },
+        'shortcut.register': async ({ accelerator }) => {
+            if (typeof accelerator !== 'string' || !accelerator) throw new Error('缺少 accelerator');
+            const ok = globalShortcut.register(accelerator, () => core?.emit('shortcut', { accelerator }));
+            if (!ok) throw new Error(`快捷键注册失败(可能已被别的程序占用):${accelerator}`);
+            return { ok: true };
+        },
+        'shortcut.unregister': async ({ accelerator }) => { globalShortcut.unregister(String(accelerator)); return { ok: true }; },
+        'extension.reveal': async () => {
+            const error = await shell.openPath(extensionDir);
+            if (error) throw new Error(`打不开插件文件夹:${error}`);
+            return { ok: true, path: extensionDir };
+        },
+    };
+
+    core = createLauncher({
+        host, paths, seedDir, version, toolchain, log, capabilities,
+        contract: path.join(root, 'launcher', 'CONTRACT.md'),
+        execPath: process.execPath,
+        cliPath: path.join(root, 'launcher', 'cli.js'),
+    });
+
+    let quitting = false;
+    let closed = false;
+    app.on('before-quit', (event) => {
+        quitting = true;
+        if (closed) return;
+        event.preventDefault();
+        void core.shutdown({ restarting: false }).finally(() => { closed = true; app.quit(); });
+    });
+    // 关掉窗口不退出,留在菜单栏;退出走菜单栏或 ⌘Q
+    app.on('window-all-closed', () => { if (quitting) app.quit(); });
+    app.on('activate', () => surfaces.show());
+    app.on('second-instance', () => surfaces.show());
+    app.on('will-quit', () => globalShortcut.unregisterAll());
+
+    app.whenReady().then(async () => {
+        if (dev && process.platform === 'darwin') app.dock?.setIcon(path.join(root, 'build', 'icon.png'));
+        // Windows/Linux:默认菜单(File/Edit/View/Window)没用,无框窗口上也没处放,去掉;macOS 的菜单在屏幕顶上,
+        // Cmd+C/V/Q 靠它,不动(#3)。窗口钮经 preload.cjs 发来这三个动作
+        if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
+        ipcMain.on('win:minimize', (event) => BrowserWindow.fromWebContents(event.sender)?.minimize());
+        ipcMain.on('win:toggle-maximize', (event) => {
+            const win = BrowserWindow.fromWebContents(event.sender);
+            if (win) { if (win.isMaximized()) win.unmaximize(); else win.maximize(); }
+        });
+        ipcMain.on('win:close', (event) => BrowserWindow.fromWebContents(event.sender)?.close());
+
+        setupTray({ surfaces });
+        // 浏览器插件的原生消息宿主登记到本机浏览器;登记失败不影响客户端本身
+        try {
+            const done = registerHost({ dir: paths.state, execPath: process.execPath, script: path.join(root, 'launcher', 'native-host.js'), env: { AGENTIC_HOME: paths.base } });
+            if (done.length) log(`浏览器插件宿主已登记:${done.join('、')}`);
+        } catch (error) { log('登记浏览器插件宿主失败', error); }
+    });
+
+    void core.start();
+}
+
+/**
+ * 菜单栏图标。macOS 用模板图(黑 + 透明,系统按深浅色上色),1x 和 2x 都显式加进去:
+ * 打包后图在 asar 里,createFromPath 不会自己去找 @2x,只拿 1x 放大,又粗又糊。别的平台用应用图标缩到 18px。
+ */
+function trayIcon() {
+    const file = (name) => path.join(root, 'build', name);
+    if (process.platform !== 'darwin') {
+        const icon = nativeImage.createFromPath(file('icon.png'));
+        return icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 18, height: 18 });
+    }
+    const icon = nativeImage.createEmpty();
+    for (const [name, scaleFactor] of [['trayTemplate.png', 1], ['trayTemplate@2x.png', 2]]) {
+        try { icon.addRepresentation({ scaleFactor, buffer: fs.readFileSync(file(name)) }); } catch { /* 缺一张就用另一张 */ }
+    }
+    icon.setTemplateImage(true);
+    return icon;
+}
+
+function setupTray({ surfaces }) {
+    tray = new Tray(trayIcon());
+    tray.setToolTip('agentic');
+    tray.setContextMenu(Menu.buildFromTemplate([
+        { label: '打开 agentic', click: () => surfaces.show() },
+        { type: 'separator' },
+        { label: '退出 agentic', role: 'quit' },
+    ]));
+    tray.on('click', () => { if (process.platform !== 'darwin') surfaces.show(); });
+}
+
+process.on('uncaughtException', (error) => console.error('未捕获异常', error));
+process.on('unhandledRejection', (error) => console.error('未处理的 Promise 拒绝', error));
+
+main();

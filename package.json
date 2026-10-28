@@ -1,26 +1,151 @@
 {
   "name": "agentic",
-  "version": "0.9.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "agentic 形态：类 ChatGPT 的对话列表 + 对话，shell / read / write / edit / browser 五个工具",
-  "iimos": {
-    "contract": 1
+  "description": "agentic —— 一个能按你的需要改自己的桌面 AI 助手",
+  "author": "woodchange",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yanglongyun/agentic.git"
   },
+  "homepage": "https://github.com/yanglongyun/agentic#readme",
+  "bugs": {
+    "url": "https://github.com/yanglongyun/agentic/issues"
+  },
+  "main": "shell/main.js",
   "engines": {
     "node": ">=22.5"
   },
   "scripts": {
-    "test": "node --test server/tests/*.test.js",
-    "check": "node server/scripts/check.js",
-    "ui:build": "node scripts/build-ui.mjs",
-    "ui:test": "npm --prefix ui test",
-    "format": "prettier --write --ignore-unknown .",
-    "format:check": "prettier --check --ignore-unknown .",
-    "setup": "npm ci && npm ci --prefix ui"
+    "app": "npm run build:ui && electron shell/main.js",
+    "app:direct": "npm run build:ui && node app/main.js",
+    "build:ui": "node launcher/cli-build.js",
+    "test": "npm run build:ui && node --test \"launcher/**/*.test.js\" && npm test --prefix app",
+    "pack:mac": "npm run build:ui && node scripts/pack.mjs --mac dir",
+    "build:app": "npm run build:ui && node scripts/pack.mjs",
+    "release:win": "npm run build:ui && node scripts/pack.mjs --win nsis --x64"
+  },
+  "dependencies": {
+    "isomorphic-git": "^1.43.0"
   },
   "devDependencies": {
-    "esbuild": "0.28.2",
-    "prettier": "3.6.2"
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^7.0.2"
+  },
+  "build": {
+    "appId": "ai.agentic",
+    "productName": "agentic",
+    "directories": {
+      "app": ".",
+      "output": "dist"
+    },
+    "files": [
+      "launcher/**/*",
+      "shell/**/*",
+      "build/trayTemplate*.png",
+      "build/icon.png",
+      "!**/*.test.js"
+    ],
+    "extraResources": [
+      {
+        "from": "app",
+        "to": "seed",
+        "filter": [
+          "**/*",
+          "!test/**",
+          "!.data/**",
+          "!node_modules/**",
+          "!ui/node_modules/**",
+          "!server/tests/**",
+          "!ui/tests/**"
+        ]
+      },
+      {
+        "from": "node_modules/esbuild",
+        "to": "toolchain/node_modules/esbuild",
+        "filter": [
+          "**/*",
+          "!bin/**"
+        ]
+      },
+      {
+        "from": "node_modules/@esbuild",
+        "to": "toolchain/node_modules/@esbuild"
+      },
+      {
+        "from": "node_modules/react",
+        "to": "toolchain/node_modules/react",
+        "filter": [
+          "**/*",
+          "!cjs/*.development.js",
+          "!cjs/*server*",
+          "!*server*",
+          "!cjs/*test-utils*"
+        ]
+      },
+      {
+        "from": "node_modules/react-dom",
+        "to": "toolchain/node_modules/react-dom",
+        "filter": [
+          "**/*",
+          "!cjs/*.development.js",
+          "!cjs/*server*",
+          "!*server*",
+          "!cjs/*test-utils*"
+        ]
+      },
+      {
+        "from": "node_modules/scheduler",
+        "to": "toolchain/node_modules/scheduler",
+        "filter": [
+          "**/*",
+          "!cjs/*.development.js"
+        ]
+      },
+      {
+        "from": "extension",
+        "to": "extension"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "agentic-${version}-win-x64.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "agentic",
+      "runAfterFinish": true
+    }
+  },
+  "bin": {
+    "agentic": "launcher/cli.js"
   }
 }
