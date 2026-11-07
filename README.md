@@ -1,61 +1,97 @@
 # agentic
 
-一个跑在你电脑上的 AI 助手。左边是对话列表，右边是对话。它能在你的电脑上执行命令、读写文件；装上浏览器插件后，还能操作你的 Chrome / Edge。
-模型用你自己的（BYOK）：接口地址、Key、模型名在设置里填，没有云端账号。
+一个由 **Tauri + Rust 客户端、浏览器插件、Cloudflare Worker** 组成的 AI 产品。打开 Mac App 加载云端网页，后台以一台设备的身份提供本机能力；也可以从手机或任意浏览器操作已连接的电脑。
 
-它还有一个平时看不见的能力：**能按你的需要改它自己。** 嫌侧栏太宽、想要一个导出按钮、想给它加一个工具，直接跟它说，
-它会改自己的界面和功能，改完马上生效。每次改动都记在设置的「改动记录」里，不满意可以退回任何一次。
+基于 Roam 最新提交 `b62132d`（此前为 `dd30fb0`）同步，agentic 版本为 0.3.0。新增独立助理 / 任务应用、主动汇报、用量统计和会话提示词；设备绑定在任务上。
 
-## 没有传统的升级
+## 结构
 
-agentic 不会推新版本覆盖你的应用——你改过的地方就是你的。官方发布新功能时，侧栏会出现一张「新东西」卡片：
-点「了解一下」，它会告诉你这是什么、加上后是什么样，你要了它就照着说明在自己身上加；点「不要」就不再提。
-
-## 目录
+- `app/src-tauri/`：Rust 本机执行端与 Tauri 桌面壳。负责设备鉴权、WebSocket、终端 PTY、命令执行、文件、截图、状态和浏览器桥接。
+- `app/ui/`：仅用于首次连接与修改服务的本地设置页。设备令牌保存到 macOS 钥匙串，普通配置保存在用户目录。
+- `extension/`：Chrome / Edge 插件。通过 Native Messaging 与 Rust 通信；不依赖 Node。
+- `worker/`：Cloudflare Worker + Durable Object + D1 + Vue 网页。负责界面、模型调用、会话、设备管理与消息路由；图片功能可选 R2。
 
 ```text
-shell/       桌面壳（Electron 主进程）：窗口、通知、对话框、菜单栏图标
-launcher/    不变层（纯 Node）：播种、快照、起不来就回滚、编译界面、浏览器通道、改动记录、新东西、agentic 命令
-             CONTRACT.md 是写给 agent 的契约，每轮都在它的指令里
-app/         出厂应用 = agent 能改的身体：本地服务、Agent 循环、工具、界面（React）。装好后拷进用户的 workspace
-extension/   浏览器插件（Chrome / Edge），经原生消息连到 launcher
-news/        新东西的发布源：index.json 列表 + 每条写给 agent 的实现说明
-build/       图标、签名配置；scripts/ 打包
+Tauri 窗口 / 手机浏览器 → Worker（网页、AI、D1、可选 R2）
+                           ↕ 设备令牌 + WebSocket
+                       Rust 执行端 ↔ 浏览器插件
 ```
 
-用户机器上的数据在 `~/Library/Application Support/ai.agentic`（Windows 是 `%APPDATA%\ai.agentic`）：
-`workspace/` 是应用本身（一个 git 仓库），`data/` 是对话和模型配置，`launcher/` 是启动记账、日志和新东西的状态。
+功能与 Roam 对齐：多设备、AI 对话、交互终端、文件浏览与上传、屏幕截图、系统状态及浏览器操作。Rust 执行端支持网页屏幕会话与任务 computer 工具共用的串行队列、画面归属与过期校验、输入后的截图失效以及 tool.cancel。截图与控制须在本机授权。远程网页没有 Tauri IPC 权限；只有本地设置窗口能够修改连接。只连接自己信任的 Worker，因为它能下发本机命令和文件操作。
 
-## 开发
+## 本机开发与打包
 
-要求 Node.js 22.5 或更高版本。
+需要 Node.js 22+（仅开发网页与工具）、Rust stable、Apple 命令行开发工具。最终 App 不需要用户安装 Node、Rust 或 Electron。
 
-```bash
-npm ci && npm ci --prefix app && npm ci --prefix app/ui
-npm run app          # 编译界面，用 Electron 启动（仓库里的 app/ 就是出厂种子）
-npm test             # launcher 测试 + 应用测试
-npm run pack:mac     # 出 Mac 应用到 dist/mac-arm64/（本地包，不签名）
+```sh
+npm run setup
+npm run app
+npm test
+npm run build:ui
+npm run pack:mac
+npm run build:app
 ```
 
-开发时想用一份和日常数据分开的目录：`AGENTIC_HOME=/tmp/agentic-dev npm run app`。
+`pack:mac` 构建 `.app`；`build:app` 构建 `.app` 与 `.dmg`。产物在 `app/src-tauri/target/release/bundle/`。公开发布前需要 Developer ID 签名和 Apple 公证；本地包与公开发布分开验证。
 
-改 `app/` 的约定见 [app/AGENTS.md](app/AGENTS.md)；agent 自己维护的说明在 [app/AGENT.md](app/AGENT.md)。
+Rust 检查：
 
-## 发布新东西
+```sh
+cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
+cargo check --manifest-path app/src-tauri/Cargo.toml
+```
 
-1. 在 `app/` 里把功能做好，作为参考实现提交（新装的用户直接带着它）。
-2. 在 `news/` 加一份写给 agent 的实现说明 `<id>.md`：做成什么样、出厂版本里相关代码在哪、建议的做法、做完要记的命令。
-   说明要按「意思」写——用户的 agentic 可能已经被改得和出厂版本不一样了。
-3. 在 `news/index.json` 的 `items` 里加一条 `{ id, date, title, summary, guide }`。
-4. 把 `id` 加进 `app/package.json` 的 `agentic.news`：新装的用户出厂就带着，不会再被提示。
-5. 推到 main。用户的 agentic 每隔几小时拉一次 `news/index.json`。
+首次打开 App，填写服务地址、设备令牌、设备名与描述。连接后在网页输入访问密码。关闭窗口后驻留菜单栏，退出 App 停止本机执行能力。修改连接时重启设备通道。上传采用临时文件，完整接收后再提交，失败时保留原文件。
 
-## 浏览器插件
+客户端配置与设备 ID 在 `~/Library/Application Support/ai.agentic-client/`，可通过 `AGENTIC_HOME` 指定独立开发目录。设备令牌在 macOS 钥匙串，连接 JSON 不包含令牌。与旧 agentic 和 Roam 的设备数据隔离。
 
-插件在 `extension/`（打包后在应用的 `Contents/Resources/extension`，设置里有「打开插件文件夹」）。
-在 Chrome 打开 `chrome://extensions`，打开「开发者模式」，「加载已解压的扩展程序」选这个文件夹。
-插件 ID 由 `manifest.json` 里的 `key` 固定为 `mgiphoedkmmckhdebcmkfceibndnioio`，launcher 启动时把原生消息宿主 `ai.agentic.browser` 登记到本机浏览器。
+浏览器插件：从菜单栏打开插件文件夹，在 Chrome / Edge 扩展管理页启用开发者模式，加载这个文件夹。插件宿主为 `ai.agentic.browser`，与 Roam 独立。Chrome 启动的是同一个 Rust 二进制的 `--native-host` 模式。
 
-## 许可
+截图首次使用时，需要在系统设置的隐私与安全性中允许 agentic 录制屏幕。
 
-MIT
+## Worker 部署
+
+生产服务：https://agentic.yanglong.yun。使用 Cloudflare `cf` CLI；需要 Node.js 22.23+。
+
+- `worker/cloudflare.config.ts`：域名、Worker、D1、Durable Object、R2 和 Secret 声明。
+- `worker/wrangler.config.ts`：静态资源构建配置。
+- `worker/wrangler.local.jsonc`：隔离的本地联调配置。
+
+```sh
+cf auth login --use-keyring
+cd worker
+npm run deploy
+```
+
+部署脚本先编译 Vue 和 Worker Build Output，再用 `cf deploy --prebuilt` 发布。首次发布通过 `--secrets-file` 注入 SETTINGS_KEY、DEVICE_TOKEN、ACCESS_PASSWORD；后续发布保留已有 Secret。SETTINGS_KEY 用于加密模型 Key，不应随意更换。
+
+生产资源为独立的 agentic D1、Durable Object 和私有 R2，不共用 Roam 数据。客户端连接信息在本机私密文件中交付，任何凭据都不提交 Git。
+
+## 本地联调
+
+```sh
+npm run build:ui
+cd worker
+npx wrangler d1 execute agentic --local --config wrangler.local.jsonc --file server/agent/schema.sql
+npx wrangler dev --config wrangler.local.jsonc --port 9507 --var SETTINGS_KEY:dev --var DEVICE_TOKEN:e2e-token --var ACCESS_PASSWORD:e2e-pass
+# 另一个终端，在 worker 下：
+node tests/e2e.mjs
+# 有真实 Rust 执行端接入时，再运行：
+PORT=9507 node tests/native-device.mjs
+# 最后运行锁定测试：
+node tests/extra.mjs
+```
+
+客户端填 `http://127.0.0.1:9507`、设备令牌 `e2e-token`。extra 测试最后触发密码锁定，只使用独立测试数据库。
+
+Rust 执行端可独立运行，用于联调或无界面服务（不会保存环境变量中的令牌）：
+
+```sh
+CLOUDFLARE_WORKER_URL=http://127.0.0.1:9507 DEVICE_TOKEN=e2e-token cargo run --manifest-path app/src-tauri/Cargo.toml --no-default-features -- --headless
+```
+
+## 来源与许可
+
+沿用同一作者 Roam 的 Vue UI、Worker 和设备消息协议；本机执行端改用 Rust。旧版 agentic 的本地 AI 与自修改工作区不再作为新产品入口。MIT，见 LICENSE。
+
+本轮部署前为 D1 保存了恢复书签，使用增量 SQL 增加缺失列和任务 / 通知表；旧会话与模型配置保留。

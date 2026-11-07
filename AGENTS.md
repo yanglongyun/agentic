@@ -1,8 +1,8 @@
-# 开发约定
+# agentic 开发约定
 
-- 仓库分三层：`shell/`（Electron 宿主）、`launcher/`（不变层，纯 Node，不 import Electron）、`app/`（出厂应用，agent 能改的身体）。
-  launcher 和 app 之间只有 `globalThis.agentic` 这一条 IPC 约定，能力清单和契约版本写在 `launcher/CONTRACT.md`，改能力就同步改它。
-- `shell/`、`launcher/` 沿用四空格缩进和现有写法；`app/` 按 [app/AGENTS.md](app/AGENTS.md)，提交前在 `app/` 里跑 `npm run format`。
-- 没有传统升级：不写「新安装包覆盖用户 workspace」的逻辑。新功能做进 `app/`，再在 `news/` 发一条写给 agent 的说明（见 README「发布新东西」）。
-- 改完跑 `npm test`（launcher + 应用）；改了界面跑 `npm run build:ui`，`app/ui/dist` 跟源码一起提交（出厂就带编好的界面）。
-- 不提交任何密钥：签名、公证用的私钥和凭据只放本机（`.gitignore` 已列出）。
+- 三部分：`app/` Tauri + Rust 本机执行客户端，`extension/` 浏览器插件，`worker/` Cloudflare Worker + Vue 网页。
+- 本机执行不依赖 Node / Electron。UI、模型调用、会话在 Worker。远程网页没有 Tauri IPC 权限。
+- 本地设置通过 IPC，设备令牌存 macOS 钥匙串。设备通道复用 Worker 的鉴权与消息协议。
+- 插件宿主 `ai.agentic.browser`，插件 ID 与 manifest key 保持一致。
+- 不提交配置、令牌、API Key、签名或公证凭据。不要修改 Roam 源项目。
+- 修改 Rust：cargo fmt、npm test、cargo check；修改网页：npm run build:ui。交付前 Worker 联调和 Mac 打包验证。

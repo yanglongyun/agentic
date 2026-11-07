@@ -23,3 +23,13 @@ build/AuthKey_*.p8
 *.pem
 
 /.claude/
+
+worker/public/
+worker/.wrangler/
+worker/wrangler.jsonc
+worker/.dev.vars
+
+app/src-tauri/target/
+app/src-tauri/gen/
+
+worker/.cloudflare/

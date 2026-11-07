@@ -1,17 +1,2 @@
-<!doctype html>
-<html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>agentic</title>
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='2' width='28' height='28' rx='8.5' fill='%232f6df6'/%3E%3Cpath d='m11 11 5.4 5-5.4 5M18.6 21.4h4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
-    />
-    <link rel="stylesheet" href="/dist/main.css" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/dist/main.js"></script>
-  </body>
-</html>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src ipc: http://ipc.localhost"><title>连接 agentic</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f6f7f9;color:#20252d;font:14px -apple-system,BlinkMacSystemFont,sans-serif}main{max-width:480px;margin:42px auto;padding:30px;background:white;border:1px solid #e5e7eb;border-radius:20px}h1{font-size:26px;margin:0 0 10px}p{line-height:1.7;color:#68717f}label{display:block;margin:18px 0 7px}input,textarea{width:100%;padding:11px;border:1px solid #d8dce2;border-radius:8px;font:inherit}button{margin-top:22px;width:100%;padding:12px;border:0;border-radius:9px;background:#20252d;color:white;font:inherit;cursor:pointer}#error{color:#bd3434;white-space:pre-wrap}small{color:#68717f}</style></head><body><main><h1>连接 agentic</h1><p>连接你的服务，在这里对话，并让助理使用这台 Mac 的终端、文件和浏览器。</p><form id="form"><label for="url">服务地址</label><input id="url" type="url" placeholder="https://agentic.example.com" required><label for="token">设备令牌</label><input id="token" type="password" autocomplete="off" placeholder="Worker 的 DEVICE_TOKEN" required><small>令牌保存在 macOS 钥匙串，不会交给网页。</small><label for="name">设备名称</label><input id="name" placeholder="我的 Mac"><label for="description">设备描述</label><textarea id="description" rows="2" placeholder="这台电脑可以做什么"></textarea><p id="error" role="alert"></p><button id="save">保存并连接</button></form><p>连接后在网页输入访问密码。关闭窗口后继续在菜单栏运行；退出 App 会断开本机执行能力。</p></main><script src="settings.js"></script></body></html>

@@ -1,0 +1,39 @@
+{
+  "name": "agentic-local",
+  "main": "server/index.js",
+  "compatibility_date": "2025-09-12",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "agentic",
+      "database_id": "00000000-0000-0000-0000-000000000001"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TERMINAL_SESSION_MANAGER",
+        "class_name": "TerminalSessionManager"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "TerminalSessionManager"
+      ]
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "IMAGES",
+      "bucket_name": "agentic-local"
+    }
+  ]
+}

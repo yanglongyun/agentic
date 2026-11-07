@@ -1,0 +1,11 @@
+{
+  "identifier": "settings",
+  "description": "仅本地连接设置窗口使用 IPC；云端网页无权限",
+  "windows": [
+    "settings"
+  ],
+  "local": true,
+  "permissions": [
+    "core:default"
+  ]
+}
